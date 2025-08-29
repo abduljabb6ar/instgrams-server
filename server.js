@@ -582,7 +582,10 @@ async function confirmOrderPayment(orderId, sessionId, telegramId) {
       // التخزين المحلي (اختياري)
       const order = orders.find(o => o.sessionId === sessionId);
       if (!order) {
+        
         console.error('❌ لم يتم العثور على الطلب في التخزين المحلي:', sessionId);
+        console.log('🔍 البحث عن الطلب:', orderId);
+
         return;
       }
 
@@ -830,6 +833,8 @@ app.post('/api/confirm-payment', express.raw({ type: 'application/json' }), asyn
     if (orderId && session.id) {
       await confirmOrderPayment(orderId, session.id, telegramId);
     } else {
+      console.log('📦 Metadata:', session.metadata);
+
       console.warn('⚠️ لم يتم العثور على orderId أو telegramId في metadata');
     }
   }
