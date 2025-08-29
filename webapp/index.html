@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تطبيق KV المصغر</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .btn {
+            background: #2575fc;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            margin: 5px 0;
+            transition: background 0.3s;
+        }
+        
+        .btn:hover {
+            background: #1a65e0;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            display: none;
+        }
+        
+        .product-card {
+            border: 1px solid #eee;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            background: #f9f9f9;
+        }
+        
+        .product-card img {
+            max-width: 100%;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>تطبيق KV المصغر</h1>
+            <p>مرحباً <span id="user-name"></span>!</p>
+        </div>
+        
+        <div class="card">
+            <h2>بحث عن المنتجات</h2>
+            <div class="form-group">
+                <input type="text" id="search-query" placeholder="اكتب ما تريد البحث عنه...">
+            </div>
+            <button class="btn" onclick="searchProducts()">بحث</button>
+            
+            <div id="search-results" class="result"></div>
+        </div>
+        
+        <div class="card">
+            <h2>تنزيل الفيديو</h2>
+            <div class="form-group">
+                <input type="text" id="video-url" placeholder="أدخل رابط الفيديو...">
+            </div>
+            <button class="btn" onclick="getVideoInfo()">الحصول على معلومات الفيديو</button>
+            
+            <div id="video-info" class="result"></div>
+        </div>
+        
+        <div class="card">
+            <h2>إرسال رسالة</h2>
+            <div class="form-group">
+                <textarea id="message-text" rows="3" placeholder="اكتب رسالتك..."></textarea>
+            </div>
+            <button class="btn" onclick="sendMessage()">إرسال</button>
+            
+            <div id="message-status" class="result"></div>
+        </div>
+        
+        <div class="card">
+            <button class="btn btn-secondary" onclick="closeApp()">إغلاق التطبيق</button>
+        </div>
+    </div>
+
+    <script>
+        // تهيئة تطبيق تليجرام ويب
+        let tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.enableClosingConfirmation();
+        tg.MainButton.setText("الإعدادات").show().onClick(showSettings);
+        
+        // عند التهيئة
+        tg.ready();
+        
+        // عرض بيانات المستخدم
+        const user = tg.initDataUnsafe.user;
+        if (user) {
+            document.getElementById('user-name').textContent = user.first_name || 'مستخدم تليجرام';
+            
+            // التحقق من بيانات المستخدم مع الخادم
+            validateUserData(tg.initData);
+        }
+        
+        // وظيفة التحقق من بيانات المستخدم
+        async function validateUserData(initData) {
+            try {
+                const response = await fetch('/api/validate-webapp-data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ initData })
+                });
+                
+                const data = await response.json();
+                if (!data.success) {
+                    console.error('فشل التحقق من بيانات المستخدم');
+                }
+            } catch (error) {
+                console.error('خطأ في التحقق:', error);
+            }
+        }
+        
+        // وظيفة البحث عن المنتجات
+        async function searchProducts() {
+            const query = document.getElementById('search-query').value;
+            if (!query) {
+                alert('يرجى إدخال نص للبحث');
+                return;
+            }
+            
+            const resultsDiv = document.getElementById('search-results');
+            resultsDiv.style.display = 'block';
+            resultsDiv.innerHTML = '<p>جاري البحث...</p>';
+            
+            try {
+                const response = await fetch('/api/webapp-action', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'search-products',
+                        data: { query },
+                        initData: tg.initData
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    if (data.data && data.data.length > 0) {
+                        let html = '<h3>نتائج البحث:</h3>';
+                        data.data.forEach(product => {
+                            html += `
+                                <div class="product-card">
+                                    <h4>${product.title}</h4>
+                                    <p>السعر: ${product.price}</p>
+                                    <p>التقييم: ${product.rating}</p>
+                                    <p>الطلبات: ${product.orders}</p>
+                                </div>
+                            `;
+                        });
+                        resultsDiv.innerHTML = html;
+                    } else {
+                        resultsDiv.innerHTML = '<p>لم يتم العثور على نتائج</p>';
+                    }
+                } else {
+                    resultsDiv.innerHTML = `<p>خطأ: ${data.error}</p>`;
+                }
+            } catch (error) {
+                console.error('خطأ في البحث:', error);
+                resultsDiv.innerHTML = '<p>حدث خطأ أثناء البحث</p>';
+            }
+        }
+        
+        // وظائف أخرى (getVideoInfo, sendMessage, closeApp, showSettings)
+        async function getVideoInfo() {
+            // تنفيذ مشابه لوظيفة البحث
+        }
+        
+        async function sendMessage() {
+            // تنفيذ مشابه لوظيفة البحث
+        }
+        
+        function closeApp() {
+            tg.close();
+        }
+        
+        function showSettings() {
+            tg.showPopup({
+                title: 'الإعدادات',
+                message: 'خيارات التطبيق المصغر',
+                buttons: [{ type: 'ok' }]
+            });
+        }
+    </script>
+</body>
+</html>
