@@ -1485,7 +1485,7 @@ app.post('/api/create-checkout-session', async (req, res) => {
 
 
 // Webhook لاستقبال أحداث Stripe
-app.post('/api/confirm-payment', express.raw({ type: 'application/json' }), (req, res) => {
+app.post('/api/confirm-payment', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -1500,7 +1500,15 @@ app.post('/api/confirm-payment', express.raw({ type: 'application/json' }), (req
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
     console.log('✅ تم الدفع بنجاح، session:', session.id);
-    confirmOrderPayment(session.id);
+
+    const orderId = session.metadata?.orderId;
+    const telegramId = session.metadata?.telegramId;
+
+    if (orderId && session.id) {
+      await confirmOrderPayment(orderId, session.id, telegramId);
+    } else {
+      console.warn('⚠️ لم يتم العثور على orderId أو telegramId في metadata');
+    }
   }
 
   res.status(200).send('✅ Webhook received');
