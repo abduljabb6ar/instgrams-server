@@ -1526,32 +1526,8 @@ app.post('/api/confirm-payment', express.raw({ type: 'application/json' }), asyn
 
 
 
-  app.post('/api/confirm-payment', async (req, res) => {
-    try {
-      const { orderId, paymentIntentId } = req.body;
-      
-      if (!orderId || !paymentIntentId) {
-        return res.status(400).json({ error: 'Order ID and Payment Intent ID are required' });
-      }
-      
-      const result = await confirmOrderPayment(orderId, paymentIntentId);
-      
-      if (result.success) {
-        res.json({
-          success: true,
-          order: result.order,
-          message: result.message
-        });
-      } else {
-        res.status(400).json({
-          success: false,
-          message: result.message
-        });
-      }
-    } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
-    }
-  });
+
+
 
   app.post('/api/cart', async (req, res) => {
     try {
