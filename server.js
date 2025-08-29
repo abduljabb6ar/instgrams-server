@@ -83,6 +83,18 @@ bot.setWebHook(`${url}/bot${token}`);
 
   let currentDisplayOption = DISPLAY_OPTIONS.MIXED;
 
+
+
+  if (process.env.DB_ENABLED === 'true') {
+ mongoose.connect(process.env.MONGODB_URI)
+    .then(() => {
+      dbConnected = true;
+      console.log('✅ تم الاتصال بـ MongoDB');
+    })
+    .catch(err => {
+      console.error('❌ فشل الاتصال بـ MongoDB:', err.message);
+    });
+}
   // ========== الدوال المساعدة ==========
   async function translateToEnglish(text) {
     console.log("ترجمة النص:", text);
