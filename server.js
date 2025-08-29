@@ -543,51 +543,25 @@ async function retrieveStripeCheckoutSession(sessionId) {
 
 async function confirmOrderPayment(orderId, sessionId, telegramId) {
   try {
-    const dbEnabled = process.env.DB_ENABLED === 'true';
+    let order = null;
 
-    if (dbEnabled && dbConnected) {
-      // 🔍 البحث في MongoDB
-      const order = await Order.findOne({ orderId });
-
-      if (!order) {
-        console.error('❌ لم يتم العثور على الطلب في MongoDB:', orderId);
-        return;
+    // ✅ محاولة البحث في MongoDB أولًا
+    if (dbConnected) {
+      try {
+        order = await Order.findOne({ orderId });
+      } catch (err) {
+        console.error('❌ خطأ أثناء البحث في MongoDB:', err.message);
       }
+    }
 
-      const sessionResult = await retrieveStripeCheckoutSession(sessionId);
-      if (!sessionResult.success) {
-        throw new Error(`فشل استرجاع جلسة الدفع: ${sessionResult.error}`);
-      }
+    // ✅ إذا لم يتم العثور على الطلب في MongoDB، نبحث في التخزين المحلي
+    if (!order) {
+      console.warn('⚠️ لم يتم العثور على الطلب في MongoDB، سيتم البحث في التخزين المحلي');
+      order = orders.find(o => o.sessionId === sessionId);
 
-      if (sessionResult.status === 'paid') {
-        order.paymentStatus = 'paid';
-        order.status = 'processing';
-        order.updatedAt = new Date();
-        await order.save();
-
-        // 🧹 حذف السلة من MongoDB
-        await Cart.deleteOne({ userId: order.userId });
-
-        // 📢 إرسال إشعار Telegram
-        const chatId = telegramId || order.telegramId;
-        if (chatId) {
-          const message = `✅ تم تأكيد الدفع!\n\n🆔 رقم الطلب: ${order.orderId}\n💰 المبلغ: ${order.totalAmount.toFixed(2)} USD\n📦 الحالة: جاري التجهيز\n\nشكراً لك على الشراء!`;
-          await bot.sendMessage(chatId, message);
-        }
-
-        console.log(`✅ تم تأكيد الدفع للطلب ${order.orderId} وتفريغ السلة`);
-        return { success: true, order };
-      } else {
-        console.warn(`⚠️ حالة الدفع غير مكتملة: ${sessionResult.status}`);
-        return { success: false, message: `Payment status: ${sessionResult.status}` };
-      }
-
-    } else {
-      // 🗂️ التخزين المحلي
-      const order = orders.find(o => o.sessionId === sessionId);
       if (!order) {
         console.error('❌ لم يتم العثور على الطلب في التخزين المحلي:', sessionId);
-        console.log('🔍 البحث عن الطلب:', orderId);
+        console.log('🔍 البحث عن الطلب باستخدام orderId:', orderId);
         return;
       }
 
@@ -600,15 +574,37 @@ async function confirmOrderPayment(orderId, sessionId, telegramId) {
         saveCarts();
       }
 
-      const chatId = telegramId || order.telegramId;
-      if (chatId) {
-        const message = `✅ تم تأكيد الدفع!\n\n🆔 رقم الطلب: ${order.orderId}\n💰 المبلغ: ${order.totalAmount.toFixed(2)} USD\n📦 الحالة: جاري التجهيز\n\nشكراً لك على الشراء!`;
-        await bot.sendMessage(chatId, message);
-      }
+      const message = `✅ تم تأكيد الدفع!\n\n🆔 رقم الطلب: ${order.orderId}\n💰 المبلغ: ${order.totalAmount.toFixed(2)} USD\n📦 الحالة: جاري التجهيز\n\nشكراً لك على الشراء!`;
+      await bot.sendMessage(telegramId || order.telegramId, message);
 
-      console.log(`✅ تم تأكيد الدفع للطلب ${order.orderId} وتفريغ السلة`);
+      console.log(`✅ تم تأكيد الدفع للطلب ${order.orderId} وتفريغ السلة (محليًا)`);
       return { success: true, order };
     }
+
+    // ✅ إذا تم العثور على الطلب في MongoDB
+    const sessionResult = await retrieveStripeCheckoutSession(sessionId);
+    if (!sessionResult.success) {
+      throw new Error(`فشل استرجاع جلسة الدفع: ${sessionResult.error}`);
+    }
+
+    if (sessionResult.status === 'paid') {
+      order.paymentStatus = 'paid';
+      order.status = 'processing';
+      order.updatedAt = new Date();
+      await order.save();
+
+      await Cart.deleteOne({ userId: order.userId });
+
+      const message = `✅ تم تأكيد الدفع!\n\n🆔 رقم الطلب: ${order.orderId}\n💰 المبلغ: ${order.totalAmount.toFixed(2)} USD\n📦 الحالة: جاري التجهيز\n\nشكراً لك على الشراء!`;
+      await bot.sendMessage(telegramId || order.telegramId, message);
+
+      console.log(`✅ تم تأكيد الدفع للطلب ${order.orderId} وتفريغ السلة (من MongoDB)`);
+      return { success: true, order };
+    } else {
+      console.warn(`⚠️ حالة الدفع غير مكتملة: ${sessionResult.status}`);
+      return { success: false, message: `Payment status: ${sessionResult.status}` };
+    }
+
   } catch (error) {
     console.error('❌ خطأ أثناء تأكيد الدفع:', error.message);
     throw error;
@@ -820,47 +816,35 @@ app.post('/api/confirm-payment', express.raw({ type: 'application/json' }), asyn
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
   let event;
-
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
   } catch (err) {
-    console.error('❌ Webhook Error: فشل التحقق من التوقيع:', err.message);
+    console.error('❌ Webhook Error:', err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // ✅ التعامل مع حدث الدفع المكتمل
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
-    console.log('✅ تم الدفع بنجاح عبر Stripe');
-    console.log('🔗 Session ID:', session.id);
+    console.log('✅ تم الدفع بنجاح، session:', session.id);
 
-    const metadata = session.metadata || {};
-    const orderId = metadata.orderId;
-    const telegramId = metadata.telegramId;
+    const orderId = session.metadata?.orderId;
+    const telegramId = session.metadata?.telegramId;
 
-    console.log('📦 Metadata:', metadata);
+    if (orderId && session.id) {
+      console.log('🔌 dbConnected:', dbConnected);
 
-    if (!orderId || !telegramId) {
-      console.warn('⚠️ Metadata ناقصة: لم يتم العثور على orderId أو telegramId');
-      return res.status(400).send('Missing metadata');
-    }
+      await confirmOrderPayment(orderId, session.id, telegramId);
+         console.log('📦 Metadata:', session.metadata);
+         
+    } else {
+   
 
-    try {
-      const result = await confirmOrderPayment(orderId, session.id, telegramId);
-      if (result?.success) {
-        console.log('✅ تم تأكيد الطلب بنجاح:', orderId);
-      } else {
-        console.warn('⚠️ لم يتم تأكيد الطلب:', result?.message || 'غير معروف');
-      }
-    } catch (err) {
-      console.error('❌ خطأ أثناء تنفيذ confirmOrderPayment:', err.message);
-      return res.status(500).send('Internal error during payment confirmation');
+      console.warn('⚠️ لم يتم العثور على orderId أو telegramId في metadata');
     }
   }
 
   res.status(200).send('✅ Webhook received');
 });
-
 
   app.use(express.json());
 app.post(`/bot${process.env.TELEGRAM_BOT_TOKEN}`, (req, res) => {
