@@ -796,9 +796,9 @@ function getUserTrackingInfo(userId) {
     console.error('TELEGRAM_BOT_TOKEN غير موجود في ملف البيئة');
     process.exit(1);
   }
-  const bot = new TelegramBot(token, {polling: true});
-
-
+  const bot = new TelegramBot(token, {polling: false});
+const url = 'https://webhooktest-jfxg.onrender.com';
+bot.setWebHook(`${url}/bot${token}`);
 
 bot.onText(/\/shiptest (.+) (.+)/, (msg, match) => {
   const userId = msg.chat.id;
