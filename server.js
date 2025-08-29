@@ -25,7 +25,8 @@
   const bot = new TelegramBot(token, {polling: false});
 const url = 'https://webhooktest-jfxg.onrender.com';
 bot.setWebHook(`${url}/bot${token}`);
-
+  app.use(cors());
+  app.use(express.json());
 app.post(`/bot${process.env.TELEGRAM_BOT_TOKEN}`, (req, res) => {
   bot.processUpdate(req.body);
   res.sendStatus(200);
@@ -33,8 +34,7 @@ app.post(`/bot${process.env.TELEGRAM_BOT_TOKEN}`, (req, res) => {
 
 
   // middleware
-  app.use(cors());
-  app.use(express.json());
+
 
   // ========== إعدادات قاعدة البيانات ==========
   let dbConnected = false;

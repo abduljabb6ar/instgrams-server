@@ -37,6 +37,18 @@
         "store": "Amazon",
         "quantity": 1,
         "addedAt": "2025-08-29T13:47:52.776Z"
+      },
+      {
+        "productId": "B0725Z1B4F",
+        "title": "منتج B0725Z1B4F",
+        "price": 10,
+        "currency": "USD",
+        "image": "",
+        "url": "https://example.com/product/B0725Z1B4F",
+        "affiliateLink": "https://example.com/product/B0725Z1B4F?aff=123",
+        "store": "Amazon",
+        "quantity": 1,
+        "addedAt": "2025-08-29T14:46:02.433Z"
       }
     ],
     "orders": [
