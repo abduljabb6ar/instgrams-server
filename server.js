@@ -832,8 +832,9 @@ app.post('/api/confirm-payment', express.raw({ type: 'application/json' }), asyn
 
     if (orderId && session.id) {
       await confirmOrderPayment(orderId, session.id, telegramId);
+         console.log('📦 Metadata:', session.metadata);
     } else {
-      console.log('📦 Metadata:', session.metadata);
+   
 
       console.warn('⚠️ لم يتم العثور على orderId أو telegramId في metadata');
     }
