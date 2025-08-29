@@ -26,11 +26,7 @@
 const url = 'https://webhooktest-jfxg.onrender.com';
 bot.setWebHook(`${url}/bot${token}`);
   app.use(cors());
-  app.use(express.json());
-app.post(`/bot${process.env.TELEGRAM_BOT_TOKEN}`, (req, res) => {
-  bot.processUpdate(req.body);
-  res.sendStatus(200);
-});
+
 
 
   // middleware
@@ -810,6 +806,44 @@ function getUserTrackingInfo(userId) {
 
   
 
+
+// Webhook لاستقبال أحداث Stripe
+app.post('/api/confirm-payment', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+  } catch (err) {
+    console.error('❌ Webhook Error:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+    console.log('✅ تم الدفع بنجاح، session:', session.id);
+
+    const orderId = session.metadata?.orderId;
+    const telegramId = session.metadata?.telegramId;
+
+    if (orderId && session.id) {
+      await confirmOrderPayment(orderId, session.id, telegramId);
+    } else {
+      console.warn('⚠️ لم يتم العثور على orderId أو telegramId في metadata');
+    }
+  }
+
+  res.status(200).send('✅ Webhook received');
+});
+
+  app.use(express.json());
+app.post(`/bot${process.env.TELEGRAM_BOT_TOKEN}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
+
+
 bot.onText(/\/shiptest (.+) (.+)/, (msg, match) => {
   const userId = msg.chat.id;
   const orderId = match[1];
@@ -1494,35 +1528,6 @@ app.post('/api/create-checkout-session', async (req, res) => {
 });
 
 
-// Webhook لاستقبال أحداث Stripe
-app.post('/api/confirm-payment', express.raw({ type: 'application/json' }), async (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-  let event;
-  try {
-    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
-  } catch (err) {
-    console.error('❌ Webhook Error:', err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
-
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
-    console.log('✅ تم الدفع بنجاح، session:', session.id);
-
-    const orderId = session.metadata?.orderId;
-    const telegramId = session.metadata?.telegramId;
-
-    if (orderId && session.id) {
-      await confirmOrderPayment(orderId, session.id, telegramId);
-    } else {
-      console.warn('⚠️ لم يتم العثور على orderId أو telegramId في metadata');
-    }
-  }
-
-  res.status(200).send('✅ Webhook received');
-});
 
 
 
