@@ -14,6 +14,20 @@
   const app = express();
   const PORT = process.env.PORT || 3000;
 
+
+
+  // ========== البوت الرئيسي ==========
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) {
+    console.error('TELEGRAM_BOT_TOKEN غير موجود في ملف البيئة');
+    process.exit(1);
+  }
+  const bot = new TelegramBot(token, {polling: false});
+const url = 'https://webhooktest-jfxg.onrender.com';
+bot.setWebHook(`${url}/bot${token}`);
+
+
+
   // middleware
   app.use(cors());
   app.use(express.json());
@@ -790,15 +804,7 @@ function getUserTrackingInfo(userId) {
 }
 
 
-  // ========== البوت الرئيسي ==========
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!token) {
-    console.error('TELEGRAM_BOT_TOKEN غير موجود في ملف البيئة');
-    process.exit(1);
-  }
-  const bot = new TelegramBot(token, {polling: false});
-const url = 'https://webhooktest-jfxg.onrender.com';
-bot.setWebHook(`${url}/bot${token}`);
+  
 
 bot.onText(/\/shiptest (.+) (.+)/, (msg, match) => {
   const userId = msg.chat.id;
