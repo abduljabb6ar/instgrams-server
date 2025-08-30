@@ -1,56 +1,7 @@
 {
   "6356981544": {
     "telegramId": 6356981544,
-    "cart": [
-      {
-        "productId": "1005007317355297",
-        "title": "منتج 1005007317355297",
-        "price": 10,
-        "currency": "USD",
-        "image": "",
-        "url": "https://example.com/product/1005007317355297",
-        "affiliateLink": "https://example.com/product/1005007317355297?aff=123",
-        "store": "Amazon",
-        "quantity": 1,
-        "addedAt": "2025-08-28T16:40:35.221Z"
-      },
-      {
-        "productId": "1005007081083798",
-        "title": "منتج 1005007081083798",
-        "price": 10,
-        "currency": "USD",
-        "image": "",
-        "url": "https://example.com/product/1005007081083798",
-        "affiliateLink": "https://example.com/product/1005007081083798?aff=123",
-        "store": "Amazon",
-        "quantity": 1,
-        "addedAt": "2025-08-28T21:19:47.392Z"
-      },
-      {
-        "productId": "1005009087367041",
-        "title": "منتج 1005009087367041",
-        "price": 10,
-        "currency": "USD",
-        "image": "",
-        "url": "https://example.com/product/1005009087367041",
-        "affiliateLink": "https://example.com/product/1005009087367041?aff=123",
-        "store": "Amazon",
-        "quantity": 1,
-        "addedAt": "2025-08-29T13:47:52.776Z"
-      },
-      {
-        "productId": "B0725Z1B4F",
-        "title": "منتج B0725Z1B4F",
-        "price": 10,
-        "currency": "USD",
-        "image": "",
-        "url": "https://example.com/product/B0725Z1B4F",
-        "affiliateLink": "https://example.com/product/B0725Z1B4F?aff=123",
-        "store": "Amazon",
-        "quantity": 1,
-        "addedAt": "2025-08-29T14:46:02.433Z"
-      }
-    ],
+    "cart": [],
     "orders": [
       {
         "orderId": "ORD_1756322145500_x2dz2jvch",

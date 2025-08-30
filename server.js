@@ -34,8 +34,7 @@ bot.setWebHook(`${url}/bot${token}`);
   // ========== إعدادات قاعدة البيانات ==========
   let dbConnected = false;
   let User, Commission, Order;
-const Cart = require('./models/Cart'); // تأكد من المسار الصحيح
-const User = require('./models/User'); // تأكد من المسار حسب بنية مشروعك
+// const User = require('./models/User'); // تأكد من المسار حسب بنية مشروعك
 
   // إنشاء مجلد للتخزين المحلي إذا لم يكن موجوداً
   const dataDir = path.join(__dirname, 'data');
@@ -90,52 +89,171 @@ const User = require('./models/User'); // تأكد من المسار حسب بن
 
 console.log('🔗 MONGODB_URI:', process.env.MONGODB_URI);
 
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => {
+// mongoose.connect(process.env.MONGODB_URI)
+//   .then(() => {
+//     dbConnected = true;
+//     console.log('✅ تم الاتصال بـ MongoDB');
+//   })
+//   .catch(err => {
+//     console.error('❌ فشل الاتصال بـ MongoDB:', err.message);
+//   });
+
+// const cartSchema = new mongoose.Schema({
+//   telegramId: { type: String, required: true },
+//   items: [
+//     {
+//       title: String,
+//       price: Number,
+//       quantity: Number,
+//       store: String,
+//       url: String
+//     }
+//   ]
+// });
+
+// const userSchema = new mongoose.Schema({
+//   telegramId: { type: String, required: true, unique: true },
+//   cart: [
+//     {
+//       productId: String,
+//       title: String,
+//       price: Number,
+//       currency: String,
+//       image: String,
+//       url: String,
+//       affiliateLink: String,
+//       store: String,
+//       quantity: Number
+//     }
+//   ],
+//   orders: [Object],
+//   affiliateEarnings: Number,
+//   createdAt: Date
+// });
+
+// module.exports = mongoose.model('User', userSchema);
+// module.exports = mongoose.model('Cart', cartSchema);
+
+
+
+
+
+async function connectToMongoDB() {
+    try {
+      await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/shopping_bot')  .then(() => {
     dbConnected = true;
     console.log('✅ تم الاتصال بـ MongoDB');
   })
   .catch(err => {
     console.error('❌ فشل الاتصال بـ MongoDB:', err.message);
   });
+      console.log('✅ Connected to MongoDB');
+      
+      // نماذج قاعدة البيانات
+      const UserSchema = new mongoose.Schema({
+        telegramId: { type: Number, required: true, unique: true },
+        username: String,
+        firstName: String,
+        lastName: String,
+        email: String,
+        phone: String,
+        shippingAddress: {
+          street: String,
+          city: String,
+          state: String,
+          zipCode: String,
+          country: String
+        },
+        cart: [{
+          productId: String,
+          title: String,
+          price: Number,
+          currency: String,
+          image: String,
+          url: String,
+          affiliateLink: String,
+          store: String,
+          quantity: { type: Number, default: 1 },
+          addedAt: { type: Date, default: Date.now }
+        }],
+        orders: [{
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'Order'
+        }],
+        affiliateEarnings: { type: Number, default: 0 },
+        createdAt: { type: Date, default: Date.now }
+      });
 
+      const CommissionSchema = new mongoose.Schema({
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        telegramId: Number,
+        productId: String,
+        productTitle: String,
+        store: String,
+        saleAmount: Number,
+        commissionRate: Number,
+        commissionAmount: Number,
+        orderId: String,
+        status: { type: String, default: 'pending' },
+        createdAt: { type: Date, default: Date.now }
+      });
 
-const userSchema = new mongoose.Schema({
-  telegramId: { type: String, required: true, unique: true },
-  cart: [
-    {
-      productId: String,
-      title: String,
-      price: Number,
-      currency: String,
-      image: String,
-      url: String,
-      affiliateLink: String,
-      store: String,
-      quantity: Number
+      const OrderSchema = new mongoose.Schema({
+        orderId: { type: String, unique: true },
+        telegramId: Number,
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User'
+        },
+        products: [{
+          productId: String,
+          title: String,
+          price: Number,
+          currency: String,
+          quantity: Number,
+          affiliateLink: String,
+          store: String
+        }],
+        totalAmount: Number,
+        currency: { type: String, default: 'USD' },
+        status: { 
+          type: String, 
+          enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'],
+          default: 'pending'
+        },
+        shippingAddress: {
+          street: String,
+          city: String,
+          state: String,
+          zipCode: String,
+          country: String
+        },
+        paymentMethod: String,
+        paymentStatus: {
+          type: String,
+          enum: ['pending', 'paid', 'failed', 'refunded'],
+          default: 'pending'
+        },
+        paymentId: String,
+        trackingNumber: String,
+        createdAt: { type: Date, default: Date.now },
+        updatedAt: { type: Date, default: Date.now }
+      });
+
+      User = mongoose.model('User', UserSchema);
+      Commission = mongoose.model('Commission', CommissionSchema);
+      Order = mongoose.model('Order', OrderSchema);
+      
+      dbConnected = true;
+      return true;
+    } catch (error) {
+      console.warn('❌ MongoDB connection failed, using local storage');
+      console.warn('For full functionality, please install MongoDB or provide a MongoDB URI');
+      dbConnected = false;
+      return false;
     }
-  ],
-  orders: [Object],
-  affiliateEarnings: Number,
-  createdAt: Date
-});
-
-module.exports = mongoose.model('User', userSchema);
-const cartSchema = new mongoose.Schema({
-  telegramId: { type: String, required: true },
-  items: [
-    {
-      title: String,
-      price: Number,
-      quantity: Number,
-      store: String,
-      url: String
-    }
-  ]
-});
-
-module.exports = mongoose.model('Cart', cartSchema);
-
+  }
+  connectToMongoDB();
   // ========== الدوال المساعدة ==========
   async function translateToEnglish(text) {
     console.log("ترجمة النص:", text);
@@ -962,6 +1080,7 @@ bot.onText(/\/track/, (msg) => {
 // bot.sendMessage(userId, `📦 تم شحن المنتج التجريبي! يمكنك تتبعه هنا:\n${trackingUrl}`);
 
   // ========== أمر تغيير طريقة العرض ==========
+let  allpro;
   bot.onText(/\/display_(mixed|price|rating|orders|store)/, (msg, match) => {
     const chatId = msg.chat.id;
     const option = match[1];
@@ -1008,7 +1127,6 @@ bot.onText(/\/track/, (msg) => {
       await bot.deleteMessage(chatId, waitingMsg.message_id);
       
       const allProducts = [...amazonProducts, ...aliExpressProducts];
-      
       if (allProducts.length === 0) {
         bot.sendMessage(chatId, '❌ لم يتم العثور على منتجات تطابق بحثك.');
         return;
@@ -1017,6 +1135,8 @@ bot.onText(/\/track/, (msg) => {
       // ترتيب المنتجات حسب الخيار المحدد
       const sortedProducts = sortProducts(allProducts, currentDisplayOption);
       const productsToSend = sortedProducts.slice(0, 8);
+      allpro=productsToSend;
+      console.log(allpro);
       
       // إرسال رسالة عن طريقة العرض المستخدمة
       const displayInfo = {
@@ -1179,22 +1299,69 @@ bot.onText(/\/track/, (msg) => {
     
     try {
       if (data.startsWith('add_to_cart_')) {
+         let producttitle;
+        let productprice;
+        let productpriceValue;
+        let productimage ;
+        let producturl;
+        let productaffiliate_link ;
+        let productstore;
         const productId = data.replace('add_to_cart_', '');
+       
         
         await bot.answerCallbackQuery(callbackQuery.id, { text: 'جاري إضافة المنتج إلى السلة...' });
         
+           for(const pro of allpro){
+
+
+          if(pro.id==productId){
+              producttitle=pro.title;
+            productprice=pro.price;
+            productpriceValue=pro.original_price;
+            productimage=pro.image;
+            producturl=pro.url;
+            productaffiliate_link=pro.affiliate_link;
+            productstore=pro.store;
+            console.log("store : "+productstore);
+            console.log(pro.id);
+console.log(pro.title);
+console.log(pro.price);
+console.log(pro.original_price);
+console.log(pro.image);
+console.log(pro.url);
+console.log(pro.affiliate_link);
+console.log(pro.store);
+console.log("ــــــــــــــــــــــــــــت");
+          console.log("this is item"+pro.title);
+          
+            break;
+
+          }
+        }
+        // console.log(`data :${data}`);
         // محاكاة إضافة منتج إلى السلة (في التطبيق الحقيقي، ستحتاج إلى البحث عن المنتج أولاً)
-        const product = {
+        // const product = {
+        //   id: productId,
+        //   title: `منتج ${productId}`,
+        //   price: '$10.00',
+        //   priceValue: 10.00,
+        //   image: '',
+        //   url: `https://example.com/product/${productId}`,
+        //   affiliate_link: `https://example.com/product/${productId}?aff=123`,
+        //   store: 'Amazon'
+        // };
+        let cleanPrice = Number(String(productprice).replace(/[^0-9.]/g, ""));
+        let cleanPrice2 = Number(String(productpriceValue).replace(/[^0-9.]/g, ""));
+          const product = {
           id: productId,
-          title: `منتج ${productId}`,
-          price: '$10.00',
-          priceValue: 10.00,
-          image: '',
-          url: `https://example.com/product/${productId}`,
-          affiliate_link: `https://example.com/product/${productId}?aff=123`,
-          store: 'Amazon'
+          title:producttitle,
+          price:cleanPrice,  
+          priceValue: cleanPrice2,
+          image: productimage,
+          url:productaffiliate_link,
+          affiliate_link: productaffiliate_link,
+          store: productstore
         };
-        
         const success = await addToCart(chatId, product);
         
         if (success) {
