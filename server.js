@@ -97,7 +97,6 @@ mongoose.connect(process.env.MONGODB_URI)
   .catch(err => {
     console.error('❌ فشل الاتصال بـ MongoDB:', err.message);
   });
-const mongoose = require('mongoose');
 
 const cartSchema = new mongoose.Schema({
   telegramId: { type: String, required: true },
