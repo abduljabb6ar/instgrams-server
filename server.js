@@ -35,6 +35,7 @@ bot.setWebHook(`${url}/bot${token}`);
   let dbConnected = false;
   let User, Commission, Order;
 const Cart = require('./models/Cart'); // تأكد من المسار الصحيح
+const User = require('./models/User'); // تأكد من المسار حسب بنية مشروعك
 
   // إنشاء مجلد للتخزين المحلي إذا لم يكن موجوداً
   const dataDir = path.join(__dirname, 'data');
@@ -98,6 +99,28 @@ mongoose.connect(process.env.MONGODB_URI)
     console.error('❌ فشل الاتصال بـ MongoDB:', err.message);
   });
 
+
+const userSchema = new mongoose.Schema({
+  telegramId: { type: String, required: true, unique: true },
+  cart: [
+    {
+      productId: String,
+      title: String,
+      price: Number,
+      currency: String,
+      image: String,
+      url: String,
+      affiliateLink: String,
+      store: String,
+      quantity: Number
+    }
+  ],
+  orders: [Object],
+  affiliateEarnings: Number,
+  createdAt: Date
+});
+
+module.exports = mongoose.model('User', userSchema);
 const cartSchema = new mongoose.Schema({
   telegramId: { type: String, required: true },
   items: [
