@@ -34,6 +34,7 @@ bot.setWebHook(`${url}/bot${token}`);
   // ========== إعدادات قاعدة البيانات ==========
   let dbConnected = false;
   let User, Commission, Order;
+const Cart = require('./models/Cart'); // تأكد من المسار الصحيح
 
   // إنشاء مجلد للتخزين المحلي إذا لم يكن موجوداً
   const dataDir = path.join(__dirname, 'data');
@@ -83,6 +84,9 @@ bot.setWebHook(`${url}/bot${token}`);
   let currentDisplayOption = DISPLAY_OPTIONS.MIXED;
 
 
+
+  
+
 console.log('🔗 MONGODB_URI:', process.env.MONGODB_URI);
 
 mongoose.connect(process.env.MONGODB_URI)
@@ -93,6 +97,22 @@ mongoose.connect(process.env.MONGODB_URI)
   .catch(err => {
     console.error('❌ فشل الاتصال بـ MongoDB:', err.message);
   });
+const mongoose = require('mongoose');
+
+const cartSchema = new mongoose.Schema({
+  telegramId: { type: String, required: true },
+  items: [
+    {
+      title: String,
+      price: Number,
+      quantity: Number,
+      store: String,
+      url: String
+    }
+  ]
+});
+
+module.exports = mongoose.model('Cart', cartSchema);
 
   // ========== الدوال المساعدة ==========
   async function translateToEnglish(text) {
