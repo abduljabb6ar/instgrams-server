@@ -1,12 +1,11 @@
 
-
+  require('dotenv').config();
   const express = require('express');
   const axios = require('axios');
   const TelegramBot = require('node-telegram-bot-api');
   const cors = require('cors');
   const mongoose = require('mongoose');
   const fs = require('fs');
-  require('dotenv').config();
 
   const path = require('path');
   const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
@@ -84,17 +83,17 @@ bot.setWebHook(`${url}/bot${token}`);
   let currentDisplayOption = DISPLAY_OPTIONS.MIXED;
 
 
+console.log('🔗 MONGODB_URI:', process.env.MONGODB_URI);
 
-  if (process.env.DB_ENABLED === 'true') {
- mongoose.connect(process.env.MONGODB_URI)
-    .then(() => {
-      dbConnected = true;
-      console.log('✅ تم الاتصال بـ MongoDB');
-    })
-    .catch(err => {
-      console.error('❌ فشل الاتصال بـ MongoDB:', err.message);
-    });
-}
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => {
+    dbConnected = true;
+    console.log('✅ تم الاتصال بـ MongoDB');
+  })
+  .catch(err => {
+    console.error('❌ فشل الاتصال بـ MongoDB:', err.message);
+  });
+
   // ========== الدوال المساعدة ==========
   async function translateToEnglish(text) {
     console.log("ترجمة النص:", text);
