@@ -1350,8 +1350,15 @@ console.log("ــــــــــــــــــــــــــــت");
         //   affiliate_link: `https://example.com/product/${productId}?aff=123`,
         //   store: 'Amazon'
         // };
-        let cleanPrice = Number(String(productprice).replace(/[^0-9.]/g, ""));
-        let cleanPrice2 = Number(String(productpriceValue).replace(/[^0-9.]/g, ""));
+        let cleanPrice,cleanPrice2;
+         if (typeof productprice === 'string') {
+        cleanPrice  = Number(String(productprice).replace(/[^0-9.]/g, ""));
+         cleanPrice2 = Number(String(productpriceValue).replace(/[^0-9.]/g, ""));
+         }
+         else{
+          cleanPrice=productprice;
+          cleanPrice2=productpriceValue;
+         }
           const product = {
           id: productId,
           title:producttitle,
