@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3DShop | Modern E-Commerce Experience</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        /* Global Styles */
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #ec4899;
+            --dark: #1f2937;
+            --light: #f9fafb;
+            --gray: #9ca3af;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f5f7ff;
+            color: var(--dark);
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Glassmorphism Effect */
+        .glass {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        /* Button Styles */
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            outline: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-secondary {
+            background: var(--secondary);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #db2777;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(236, 72, 153, 0.3);
+        }
+
+        /* Header Styles */
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 15px 0;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+        }
+
+        .logo i {
+            margin-right: 8px;
+        }
+
+        nav ul {
+            display: flex;
+            list-style: none;
+        }
+
+        nav ul li {
+            margin: 0 15px;
+        }
+
+        nav ul li a {
+            text-decoration: none;
+            color: var(--dark);
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        nav ul li a:hover {
+            color: var(--primary);
+        }
+
+        .header-icons {
+            display: flex;
+            align-items: center;
+        }
+
+        .header-icons div {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-left: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: var(--light);
+        }
+
+        .header-icons div:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Hero Section with 3D Banner */
+        .hero {
+            height: 500px;
+            position: relative;
+            margin: 30px 0;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        #banner-3d {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .hero-content {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 30px;
+            background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+            color: white;
+        }
+
+        .hero-content h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .hero-content p {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            max-width: 600px;
+        }
+
+        /* Search Bar */
+        .search-container {
+            display: flex;
+            margin: 30px 0;
+            position: relative;
+        }
+
+        .search-bar {
+            flex: 1;
+            padding: 16px 24px;
+            border-radius: 50px;
+            border: none;
+            outline: none;
+            font-size: 16px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            padding-right: 130px;
+        }
+
+        .search-options {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+        }
+
+        .search-options button {
+            margin-left: 10px;
+            border-radius: 50px;
+            padding: 8px 16px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+        }
+
+        .search-options button i {
+            margin-right: 5px;
+        }
+
+        /* Product Grid */
+        .section-title {
+            font-size: 28px;
+            margin: 40px 0 20px;
+            position: relative;
+            padding-bottom: 10px;
+        }
+
+        .section-title::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 60px;
+            height: 4px;
+            background: var(--primary);
+            border-radius: 2px;
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 25px;
+            margin-bottom: 50px;
+        }
+
+        .product-card {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            transition: transform 0.3s, box-shadow 0.3s;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            position: relative;
+        }
+
+        .product-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .product-image {
+            height: 200px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .product-3d {
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .product-info {
+            padding: 20px;
+        }
+
+        .product-name {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .product-price {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 15px;
+        }
+
+        .product-actions {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Footer */
+        footer {
+            background: var(--dark);
+            color: white;
+            padding: 50px 0 20px;
+        }
+
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .footer-column h3 {
+            font-size: 18px;
+            margin-bottom: 20px;
+            position: relative;
+            padding-bottom: 10px;
+        }
+
+        .footer-column h3::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 30px;
+            height: 3px;
+            background: var(--primary);
+        }
+
+        .footer-column ul {
+            list-style: none;
+        }
+
+        .footer-column ul li {
+            margin-bottom: 10px;
+        }
+
+        .footer-column ul li a {
+            color: var(--gray);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-column ul li a:hover {
+            color: white;
+        }
+
+        .social-icons {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .social-icons a {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            transition: all 0.3s;
+        }
+
+        .social-icons a:hover {
+            background: var(--primary);
+            transform: translateY(-3px);
+        }
+
+        .copyright {
+            text-align: center;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--gray);
+            font-size: 14px;
+        }
+
+        /* AI Chat Assistant */
+        .chat-assistant {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 1000;
+        }
+
+        .chat-button {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 5px 20px rgba(99, 102, 241, 0.4);
+            transition: all 0.3s;
+        }
+
+        .chat-button:hover {
+            transform: scale(1.1);
+        }
+
+        .chat-window {
+            position: absolute;
+            bottom: 70px;
+            right: 0;
+            width: 350px;
+            height: 450px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            padding: 20px;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f9f9f9;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+        }
+
+        .message.bot {
+            flex-direction: row;
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .message-content {
+            padding: 12px;
+            border-radius: 18px;
+            max-width: 70%;
+        }
+
+        .message.bot .message-content {
+            background: white;
+            border-top-left-radius: 4px;
+        }
+
+        .message.user .message-content {
+            background: var(--primary);
+            color: white;
+            border-top-right-radius: 4px;
+        }
+
+        .chat-input {
+            padding: 15px;
+            display: flex;
+            background: white;
+            border-top: 1px solid #eee;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 12px;
+            border-radius: 50px;
+            border: 1px solid #ddd;
+            outline: none;
+        }
+
+        .chat-input button {
+            margin-left: 10px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 992px) {
+            .hero-content h1 {
+                font-size: 2rem;
+            }
+            
+            .hero-content p {
+                font-size: 1rem;
+            }
+            
+            nav ul li {
+                margin: 0 10px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+            }
+            
+            .logo {
+                margin-bottom: 15px;
+            }
+            
+            nav ul {
+                margin-bottom: 15px;
+            }
+            
+            .hero {
+                height: 400px;
+            }
+            
+            .search-options {
+                position: relative;
+                margin-top: 15px;
+                justify-content: center;
+                right: auto;
+                top: auto;
+                transform: none;
+            }
+            
+            .search-container {
+                flex-direction: column;
+            }
+            
+            .search-bar {
+                padding-right: 24px;
+            }
+            
+            .chat-window {
+                width: 300px;
+                height: 400px;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .hero {
+                height: 300px;
+            }
+            
+            .hero-content h1 {
+                font-size: 1.5rem;
+            }
+            
+            .products-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .footer-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .chat-window {
+                width: 280px;
+                right: -20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container header-content">
+            <div class="logo">
+                <i class="fas fa-cube"></i>
+                <span>3DShop</span>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="#">Home</a></li>
+                    <li><a href="#">Products</a></li>
+                    <li><a href="#">Categories</a></li>
+                    <li><a href="#">Deals</a></li>
+                    <li><a href="#">About</a></li>
+                </ul>
+            </nav>
+            <div class="header-icons">
+                <div id="search-btn"><i class="fas fa-search"></i></div>
+                <div id="cart-btn"><i class="fas fa-shopping-cart"></i></div>
+                <div id="account-btn"><i class="fas fa-user"></i></div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Hero Section with 3D Banner -->
+        <section class="hero">
+            <div id="banner-3d"></div>
+            <div class="hero-content">
+                <h1>Experience Products in 3D</h1>
+                <p>Explore our collection with immersive 3D previews and find exactly what you're looking for with our AI assistant.</p>
+                <button class="btn btn-primary">Shop Now</button>
+            </div>
+        </section>
+
+        <!-- Search Bar -->
+        <div class="search-container">
+            <input type="text" class="search-bar" placeholder="Search for products or describe what you need...">
+            <div class="search-options">
+                <button class="btn btn-primary"><i class="fas fa-search"></i> Search</button>
+                <button class="btn btn-secondary"><i class="fas fa-camera"></i> Image</button>
+            </div>
+        </div>
+
+        <!-- Featured Products -->
+        <h2 class="section-title">Featured Products</h2>
+        <div class="products-grid" id="featured-products">
+            <!-- Product cards will be dynamically generated here -->
+        </div>
+
+        <!-- Popular Categories -->
+        <h2 class="section-title">Popular Categories</h2>
+        <div class="products-grid" id="categories">
+            <!-- Category cards will be dynamically generated here -->
+        </div>
+
+        <!-- New Arrivals -->
+        <h2 class="section-title">New Arrivals</h2>
+        <div class="products-grid" id="new-products">
+            <!-- Product cards will be dynamically generated here -->
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-column">
+                    <h3>3DShop</h3>
+                    <p>The future of e-commerce with immersive 3D experiences and AI-powered shopping assistance.</p>
+                    <div class="social-icons">
+                        <a href="#"><i class="fab fa-facebook-f"></i></a>
+                        <a href="#"><i class="fab fa-twitter"></i></a>
+                        <a href="#"><i class="fab fa-instagram"></i></a>
+                        <a href="#"><i class="fab fa-linkedin-in"></i></a>
+                    </div>
+                </div>
+                <div class="footer-column">
+                    <h3>Shop</h3>
+                    <ul>
+                        <li><a href="#">All Products</a></li>
+                        <li><a href="#">Featured Items</a></li>
+                        <li><a href="#">New Arrivals</a></li>
+                        <li><a href="#">Sale Items</a></li>
+                        <li><a href="#">3D Preview</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h3>Company</h3>
+                    <ul>
+                        <li><a href="#">About Us</a></li>
+                        <li><a href="#">Careers</a></li>
+                        <li><a href="#">Contact</a></li>
+                        <li><a href="#">Blog</a></li>
+                        <li><a href="#">Press</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h3>Support</h3>
+                    <ul>
+                        <li><a href="#">FAQ</a></li>
+                        <li><a href="#">Shipping</a></li>
+                        <li><a href="#">Returns</a></li>
+                        <li><a href="#">Warranty</a></li>
+                        <li><a href="#">Privacy Policy</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="copyright">
+                <p>&copy; 2023 3DShop. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- AI Chat Assistant -->
+    <div class="chat-assistant">
+        <div class="chat-button" id="chat-toggle">
+            <i class="fas fa-robot"></i>
+        </div>
+        <div class="chat-window" id="chat-window">
+            <div class="chat-header">
+                <h3>AI Shopping Assistant</h3>
+                <div id="chat-close"><i class="fas fa-times"></i></div>
+            </div>
+            <div class="chat-messages" id="chat-messages">
+                <div class="message bot">
+                    <div class="message-content">
+                        Hi there! I'm your shopping assistant. How can I help you today?
+                    </div>
+                </div>
+            </div>
+            <div class="chat-input">
+                <input type="text" placeholder="Ask about products..." id="chat-input">
+                <button id="chat-send"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sample product data (would normally come from API)
+        const products = [
+            {
+                id: 1,
+                name: "Wireless Headphones",
+                price: 199.99,
+                description: "Premium sound quality with noise cancellation",
+                imageUrl: "https://placehold.co/300x200/6366f1/white?text=Headphones",
+                glbUrl: "#"
+            },
+            {
+                id: 2,
+                name: "Smart Watch",
+                price: 249.99,
+                description: "Track your fitness and stay connected",
+                imageUrl: "https://placehold.co/300x200/ec4899/white?text=Smart+Watch",
+                glbUrl: "#"
+            },
+            {
+                id: 3,
+                name: "Portable Speaker",
+                price: 129.99,
+                description: "Rich sound in a compact design",
+                imageUrl: "https://placehold.co/300x200/10b981/white?text=Speaker",
+                glbUrl: "#"
+            },
+            {
+                id: 4,
+                name: "Gaming Mouse",
+                price: 79.99,
+                description: "High precision for professional gamers",
+                imageUrl: "https://placehold.co/300x200/f59e0b/white?text=Gaming+Mouse",
+                glbUrl: "#"
+            }
+        ];
+
+        // Sample categories
+        const categories = [
+            { name: "Electronics", image: "https://placehold.co/300x200/6366f1/white?text=Electronics" },
+            { name: "Home & Kitchen", image: "https://placehold.co/300x200/ec4899/white?text=Home+Kitchen" },
+            { name: "Fashion", image: "https://placehold.co/300x200/10b981/white?text=Fashion" },
+            { name: "Sports", image: "https://placehold.co/300x200/f59e0b/white?text=Sports" }
+        ];
+
+        // DOM Elements
+        const featuredProductsGrid = document.getElementById('featured-products');
+        const categoriesGrid = document.getElementById('categories');
+        const newProductsGrid = document.getElementById('new-products');
+        const chatToggle = document.getElementById('chat-toggle');
+        const chatWindow = document.getElementById('chat-window');
+        const chatClose = document.getElementById('chat-close');
+        const chatMessages = document.getElementById('chat-messages');
+        const chatInput = document.getElementById('chat-input');
+        const chatSend = document.getElementById('chat-send');
+
+        // Initialize Three.js scene for banner
+        function initBanner() {
+            const container = document.getElementById('banner-3d');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            // Create scene
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            renderer.setSize(width, height);
+            container.appendChild(renderer.domElement);
+
+            // Add lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 5, 5);
+            scene.add(directionalLight);
+
+            // Add floating shapes
+            const geometry = new THREE.IcosahedronGeometry(1, 0);
+            const material = new THREE.MeshPhongMaterial({ 
+                color: 0x6366f1,
+                shininess: 100,
+                transparent: true,
+                opacity: 0.8
+            });
+
+            const shapes = [];
+            for (let i = 0; i < 5; i++) {
+                const shape = new THREE.Mesh(geometry, material);
+                shape.position.x = (Math.random() - 0.5) * 10;
+                shape.position.y = (Math.random() - 0.5) * 4;
+                shape.position.z = (Math.random() - 0.5) * 10;
+                shape.rotation.x = Math.random() * Math.PI;
+                shape.rotation.y = Math.random() * Math.PI;
+                shapes.push(shape);
+                scene.add(shape);
+            }
+
+            camera.position.z = 5;
+
+            // Animation
+            function animate() {
+                requestAnimationFrame(animate);
+
+                shapes.forEach(shape => {
+                    shape.rotation.x += 0.005;
+                    shape.rotation.y += 0.01;
+                    shape.position.y += 0.005;
+                    if (shape.position.y > 3) shape.position.y = -3;
+                });
+
+                renderer.render(scene, camera);
+            }
+
+            animate();
+
+            // Handle resize
+            window.addEventListener('resize', () => {
+                const newWidth = container.clientWidth;
+                const newHeight = container.clientHeight;
+                camera.aspect = newWidth / newHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(newWidth, newHeight);
+            });
+        }
+
+        // Render product cards
+        function renderProducts(products, container) {
+            container.innerHTML = '';
+            products.forEach(product => {
+                const productCard = document.createElement('div');
+                productCard.className = 'product-card';
+                productCard.innerHTML = `
+                    <div class="product-image">
+                        <div class="product-3d" data-product-id="${product.id}">
+                            <img src="${product.imageUrl}" alt="${product.name}" style="width:100%; height:100%; object-fit:cover;">
+                        </div>
+                    </div>
+                    <div class="product-info">
+                        <h3 class="product-name">${product.name}</h3>
+                        <p class="product-description">${product.description}</p>
+                        <div class="product-price">$${product.price.toFixed(2)}</div>
+                        <div class="product-actions">
+                            <button class="btn btn-primary">Add to Cart</button>
+                            <button class="btn btn-secondary">View Details</button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(productCard);
+            });
+        }
+
+        // Render categories
+        function renderCategories(categories, container) {
+            container.innerHTML = '';
+            categories.forEach(category => {
+                const categoryCard = document.createElement('div');
+                categoryCard.className = 'product-card';
+                categoryCard.innerHTML = `
+                    <div class="product-image">
+                        <img src="${category.image}" alt="${category.name}" style="width:100%; height:100%; object-fit:cover;">
+                    </div>
+                    <div class="product-info">
+                        <h3 class="product-name">${category.name}</h3>
+                        <button class="btn btn-primary">Explore</button>
+                    </div>
+                `;
+                container.appendChild(categoryCard);
+            });
+        }
+
+        // Chat functionality
+        chatToggle.addEventListener('click', () => {
+            chatWindow.style.display = 'flex';
+        });
+
+        chatClose.addEventListener('click', () => {
+            chatWindow.style.display = 'none';
+        });
+
+        chatSend.addEventListener('click', sendMessage);
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        function sendMessage() {
+            const message = chatInput.value.trim();
+            if (message) {
+                // Add user message
+                addMessage(message, 'user');
+                chatInput.value = '';
+                
+                // Simulate AI response after a short delay
+                setTimeout(() => {
+                    // This would normally call the API endpoint
+                    const response = generateAIResponse(message);
+                    addMessage(response, 'bot');
+                }, 1000);
+            }
+        }
+
+        function addMessage(content, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            messageDiv.innerHTML = `<div class="message-content">${content}</div>`;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Simple mock AI response generator
+        function generateAIResponse(message) {
+            message = message.toLowerCase();
+            
+            if (message.includes('headphone') || message.includes('audio')) {
+                return "We have several headphone options available. Our premium wireless headphones feature noise cancellation and 30-hour battery life. Would you like to see them?";
+            } else if (message.includes('watch') || message.includes('smartwatch')) {
+                return "Our smartwatch collection includes fitness tracking, heart rate monitoring, and smartphone connectivity. I can show you our latest models.";
+            } else if (message.includes('price') || message.includes('cost')) {
+                return "Our products range from $50 to $500, with regular promotions and discounts. Is there a specific product you're interested in?";
+            } else if (message.includes('shipping') || message.includes('delivery')) {
+                return "We offer free shipping on orders over $50. Standard delivery takes 3-5 business days, with express options available.";
+            } else {
+                return "I can help you find products, check prices, or provide recommendations. What are you looking for today?";
+            }
+        }
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', () => {
+            initBanner();
+            renderProducts(products, featuredProductsGrid);
+            renderCategories(categories, categoriesGrid);
+            renderProducts([...products].reverse(), newProductsGrid); // Reverse for "new" products
+            
+            // This is where API calls would be made in a real application
+            console.log("Page loaded. API endpoints would be called here:");
+            console.log("GET /api/products - to fetch products");
+            console.log("GET /api/categories - to fetch categories");
+        });
+    </script>
+</body>
+</html>

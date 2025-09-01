@@ -545,6 +545,9 @@ async function connectToMongoDB() {
     }
   }
 
+
+
+
   // ========== دوال إدارة سلة المشتريات (مع دعم التخزين المحلي) ==========
   async function addToCart(telegramId, product) {
     try {
@@ -566,7 +569,7 @@ async function connectToMongoDB() {
           user.cart.push({
             productId: product.id,
             title: product.title,
-            price: product.priceValue || parseFloat(product.price.replace(/[^\d.]/g, '')),
+            price: product.priceValue ||product.price,
             currency: 'USD',
             image: product.image,
             url: product.url,
@@ -599,7 +602,7 @@ async function connectToMongoDB() {
           user.cart.push({
             productId: product.id,
             title: product.title,
-            price: product.priceValue || parseFloat(product.price.replace(/[^\d.]/g, '')),
+            price: product.priceValue || product.price,
             currency: 'USD',
             image: product.image,
             url: product.url,
@@ -957,29 +960,6 @@ function autoUpdateDeliveredStatus() {
 }
 setInterval(autoUpdateDeliveredStatus, 30 * 1000); // كل 30 ثانية
 
-function getUserTrackingInfo(userId) {
-  const userOrders = orders.filter(o => o.userId === userId);
-  if (userOrders.length === 0) return '📭 لا توجد طلبات حتى الآن.';
-
-  let message = '📦 حالة الشحن لمنتجاتك:\n\n';
-
-  userOrders.forEach(order => {
-    message += `🧾 طلب رقم: ${order.id}\n`;
-    order.products.forEach(product => {
-      const statusEmoji = product.shippingStatus === 'shipped' ? '✅' :
-                          product.shippingStatus === 'delivered' ? '📬' : '⏳';
-      const tracking = product.trackingUrl ? `\n🔗 تتبع: ${product.trackingUrl}` : '';
-      message += `- ${product.title} (${product.source})\n  الحالة: ${product.shippingStatus} ${statusEmoji}${tracking}\n`;
-    });
-    message += '\n';
-  });
-
-  return message;
-}
-
-
-  
-
 
 // Webhook لاستقبال أحداث Stripe
 app.post('/api/confirm-payment', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -1167,10 +1147,12 @@ let  allpro;
         
         try {
           const keyboard = {
-            inline_keyboard: [[
-              { text: '🛒 إضافة إلى السلة', callback_data: `add_to_cart_${product.id}` }
-            ]]
-          };
+  inline_keyboard: [[
+    { text: '🛒 إضافة إلى السلة', callback_data: `add_to_cart_${product.id}` }
+]]
+};
+
+   
           
           if (product.image && product.image.startsWith('http')) {
             await bot.sendPhoto(chatId, product.image, {
@@ -1216,7 +1198,118 @@ let  allpro;
     }
   });
 
+// bot.onText(/\/search (.+)/, async (msg, match) => {
+//   const chatId = msg.chat.id;
+//   const query = match[1];
+
+//   if (!query) {
+//     bot.sendMessage(chatId, '⚠️ يرجى تقديم كلمة بحث صحيحة');
+//     return;
+//   }
+
+//   const waitingMsg = await bot.sendMessage(chatId, '🔍 جاري البحث في جميع المتاجر...');
+
+//   try {
+//     const [amazonProducts, aliExpressProducts] = await Promise.all([
+//       searchAmazonProducts(query),
+//       searchAliExpressProducts(query)
+//     ]);
+
+//     await bot.deleteMessage(chatId, waitingMsg.message_id);
+
+//     const allProducts = [...amazonProducts, ...aliExpressProducts];
+//     if (allProducts.length === 0) {
+//       bot.sendMessage(chatId, '❌ لم يتم العثور على منتجات تطابق بحثك.');
+//       return;
+//     }
+
+//     const sortedProducts = sortProducts(allProducts, currentDisplayOption);
+//     const productsToSend = sortedProducts.slice(0, 8);
+//     allpro = productsToSend;
+
+//     const displayInfo = {
+//       [DISPLAY_OPTIONS.MIXED]: '🔄 عرض عشوائي',
+//       [DISPLAY_OPTIONS.BY_PRICE]: '💰 عرض حسب السعر (الأرخص أولاً)',
+//       [DISPLAY_OPTIONS.BY_RATING]: '⭐ عرض حسب التقييم (الأعلى أولاً)',
+//       [DISPLAY_OPTIONS.BY_ORDERS]: '🔥 عرض حسب المبيعات (الأكثر مبيعاً)',
+//       [DISPLAY_OPTIONS.BY_STORE]: '🏪 عرض حسب المتجر (Amazon أولاً)'
+//     };
+
+//     await bot.sendMessage(chatId, displayInfo[currentDisplayOption]);
+
+//     for (const product of productsToSend) {
+//       const storeIcon = product.store === 'Amazon' ? '🏪' : '🛒';
+//       const imageUrl = product.image || product.thumbnail || product.image_url;
+
+//       const message = `
+// ${storeIcon} *${product.store}*
+// 📦 ${product.title}
+// 💰 السعر: ${product.price} ${product.original_price ? `(كان: ${product.original_price})` : ''}
+// ⭐ التقييم: ${product.rating || 'غير متوفر'}
+// 🛒 ${product.orders || 'غير متوفر'}
+// 🚚 ${product.shipping}
+// ${product.discount ? `🎁 خصم: ${product.discount}` : ''}
+// 🔗 [عرض المنتج](${product.affiliate_link || product.url})
+
+// *عمولة: ${(product.commission_rate * 100).toFixed(1)}%*
+//       `.trim();
+
+//     const keyboard = {
+//   inline_keyboard: [[
+//     {
+//       text: '🛒 إضافة إلى السلة',
+//       callback_data: `add_to_cart_${product.id}`
+//     }
+//   ]]
+// };
+
+//       try {
+//         if (imageUrl && imageUrl.startsWith('http')) {
+//           await bot.sendPhoto(chatId, imageUrl, {
+//             caption: message,
+//             parse_mode: 'Markdown',
+//             reply_markup: keyboard
+//           });
+//         } else {
+//           await bot.sendMessage(chatId, message, {
+//             parse_mode: 'Markdown',
+//             reply_markup: keyboard
+//           });
+//         }
+//       } catch (sendError) {
+//         console.error('Error sending product:', sendError.message);
+//         await bot.sendMessage(chatId, `📦 ${product.title}\n💰 ${product.price}\n🔗 ${product.affiliate_link || product.url}`);
+//       }
+
+//       await new Promise(resolve => setTimeout(resolve, 800));
+//     }
+
+//     const statsMessage = `
+// ✅ تم العثور على ${allProducts.length} منتج:
+// • 🏪 Amazon: ${amazonProducts.length} منتج
+// • 🛒 AliExpress: ${aliExpressProducts.length} منتج
+
+// *أوامر العرض المتاحة:*
+// /display_mixed - عرض عشوائي
+// /display_price - حسب السعر
+// /display_rating - حسب التقييم  
+// /display_orders - حسب المبيعات
+// /display_store - حسب المتجر
+
+// استخدم /search <كلمة البحث> للبحث مرة أخرى.
+//     `.trim();
+
+//     bot.sendMessage(chatId, statsMessage, { parse_mode: 'Markdown' });
+
+//   } catch (error) {
+//     console.error('Error in search:', error);
+//     try { await bot.deleteMessage(chatId, waitingMsg.message_id); } catch {}
+//     bot.sendMessage(chatId, '❌ حدث خطأ أثناء البحث. يرجى المحاولة مرة أخرى لاحقاً.');
+//   }
+// });
   // ========== أمر البحث في متجر محدد ==========
+
+
   bot.onText(/\/search_(amazon|aliexpress) (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const store = match[1];
@@ -1293,132 +1386,406 @@ let  allpro;
   });
 
   // ========== معالجة الأزرار ==========
-  bot.on('callback_query', async (callbackQuery) => {
-    const chatId = callbackQuery.message.chat.id;
-    const data = callbackQuery.data;
+//   bot.on('callback_query', async (callbackQuery) => {
+//     const chatId = callbackQuery.message.chat.id;
+//     const data = callbackQuery.data;
     
-    try {
-      if (data.startsWith('add_to_cart_')) {
-         let producttitle;
-        let productprice;
-        let productpriceValue;
-        let productimage ;
-        let producturl;
-        let productaffiliate_link ;
-        let productstore;
-        const productId = data.replace('add_to_cart_', '');
+//     try {
+//       if (data.startsWith('add_to_cart_')) {
+//          let producttitle;
+//         let productprice;
+//         let productpriceValue;
+//         let productimage ;
+//         let producturl;
+//         let productaffiliate_link ;
+//         let productstore;
+//         const productId = data.replace('add_to_cart_', '');
        
+//         console.log("id   :    "+productId);
+// console.log("ــــــــــــــــــــــــــــت");
+
+//         await bot.answerCallbackQuery(callbackQuery.id, { text: 'جاري إضافة المنتج إلى السلة...' });
         
-        await bot.answerCallbackQuery(callbackQuery.id, { text: 'جاري إضافة المنتج إلى السلة...' });
-        
-           for(const pro of allpro){
+//            for(const pro of allpro){
 
 
-          if(pro.id==productId){
-              producttitle=pro.title;
-            productprice=pro.price;
-            productpriceValue=pro.original_price;
-            productimage=pro.image;
-            producturl=pro.url;
-            productaffiliate_link=pro.affiliate_link;
-            productstore=pro.store;
-            console.log("store : "+productstore);
-            console.log(pro.id);
-console.log(pro.title);
-console.log(pro.price);
-console.log(pro.original_price);
-console.log(pro.image);
-console.log(pro.url);
-console.log(pro.affiliate_link);
-console.log(pro.store);
-console.log("ــــــــــــــــــــــــــــت");
-          console.log("this is item"+pro.title);
+//           if(pro.id==productId){
+//               producttitle=pro.title;
+//             productprice=pro.price;
+//             productpriceValue=pro.original_price;
+//             productimage=pro.image;
+//             producturl=pro.url;
+//             productaffiliate_link=pro.affiliate_link;
+//             productstore=pro.store;
+//             console.log("store : "+productstore);
+//             console.log(pro.id);
+// console.log(pro.title);
+// console.log(pro.price);
+// console.log(pro.original_price);
+// console.log(pro.image);
+// console.log(pro.url);
+// console.log(pro.affiliate_link);
+// console.log(pro.store);
+// console.log("ــــــــــــــــــــــــــــت");
+//           console.log("this is item"+pro.title);
           
-            break;
+//             break;
 
+//           }
+//         }
+//         // console.log(`data :${data}`);
+//         // محاكاة إضافة منتج إلى السلة (في التطبيق الحقيقي، ستحتاج إلى البحث عن المنتج أولاً)
+//         // const product = {
+//         //   id: productId,
+//         //   title: `منتج ${productId}`,
+//         //   price: '$10.00',
+//         //   priceValue: 10.00,
+//         //   image: '',
+//         //   url: `https://example.com/product/${productId}`,
+//         //   affiliate_link: `https://example.com/product/${productId}?aff=123`,
+//         //   store: 'Amazon'
+//         // };
+//         let cleanPrice,cleanPrice2;
+//          if (typeof productprice === 'string'&&productprice.length!=0) {
+//         cleanPrice  = Number(String(productprice).replace(/[^0-9.]/g, ""));
+//          cleanPrice2 = Number(String(productpriceValue).replace(/[^0-9.]/g, ""));
+//          }
+//          else{
+//           cleanPrice=productprice;
+//           cleanPrice2=productpriceValue;
+//          }
+//           const product = {
+//           id: productId,
+//           title:producttitle,
+//           price:cleanPrice,  
+//           priceValue: cleanPrice2,
+//           image: productimage,
+//           url:productaffiliate_link,
+//           affiliate_link: productaffiliate_link,
+//           store: productstore
+//         };
+//         const success = await addToCart(chatId, product);
+        
+//         if (success) {
+//           await bot.sendMessage(chatId, '✅ تمت إضافة المنتج إلى سلة المشتريات.');
+//         } else {
+//           await bot.sendMessage(chatId, '❌ فشلت إضافة المنتج إلى السلة. يرجى المحاولة مرة أخرى.');
+//         }
+//       }
+//       else if (data === 'checkout') {
+//         await bot.answerCallbackQuery(callbackQuery.id, { text: 'جاري إنهاء عملية الشراء...' });
+        
+//         const cartItems = await getCart(chatId);
+        
+//         if (cartItems.length === 0) {
+//           await bot.sendMessage(chatId, '❌ سلة المشتريات فارغة. لا يمكن إنهاء الشراء.');
+//           return;
+//         }
+        
+//         try {
+//           // طلب معلومات الشحن من المستخدم
+//           const shippingOptions = {
+//             reply_markup: {
+//               inline_keyboard: [
+//                 [{ text: '📋 إدخال عنوان الشحن', callback_data: 'enter_shipping' }],
+//                 [{ text: '❌ إلغاء', callback_data: 'cancel_checkout' }]
+//               ]
+//             }
+//           };
+          
+//           bot.sendMessage(chatId, '🚚 يرجى إدخال عنوان الشحن لإكمال عملية الشراء:', shippingOptions);
+//         } catch (error) {
+//           await bot.sendMessage(chatId, '❌ فشل إنشاء الطلب. يرجى المحاولة مرة أخرى.');
+//         }
+//       }
+//       else if (data === 'clear_cart') {
+//         await bot.answerCallbackQuery(callbackQuery.id, { text: 'جاري تفريغ السلة...' });
+        
+//         const success = await clearCart(chatId);
+        
+//         if (success) {
+//           await bot.sendMessage(chatId, '✅ تم تفريغ سلة المشتريات.');
+//         } else {
+//           await bot.sendMessage(chatId, '❌ فشل تفريغ السلة. يرجى المحاولة مرة أخرى.');
+//         }
+//       }
+//   else if (data === 'enter_shipping') {
+//   await bot.answerCallbackQuery(callbackQuery.id, { text: 'جاري إعداد نموذج العنوان...' });
+  
+//   const addressInstructions = `📋 يرجى إرسال عنوان الشحن بالشكل التالي:
+  
+// الشارع: [اسم الشارع ورقم المنزل]
+// المدينة: [اسم المدينة]
+// الولاية/المحافظة: [اسم الولاية]
+// الرمز البريدي: [الرمز البريدي]
+// البلد: [اسم البلد]
+
+// مثال:
+// الشارع: 123 شارع التسوق
+// المدينة: الرياض
+// الولاية/المحافظة: الرياض
+// الرمز البريدي: 12345
+// البلد: السعودية`;
+
+//   bot.sendMessage(chatId, addressInstructions);
+  
+//   const addressHandler = async (addressMsg) => {
+//     if (addressMsg.chat.id === chatId) {
+//       bot.removeListener('message', addressHandler);
+      
+//       const addressText = addressMsg.text;
+//       const shippingAddress = {};
+      
+//       // معالجة العنوان
+//       const addressLines = addressText.split('\n');
+//       addressLines.forEach(line => {
+//         if (line.includes('الشارع:')) shippingAddress.street = line.replace('الشارع:', '').trim();
+//         else if (line.includes('المدينة:')) shippingAddress.city = line.replace('المدينة:', '').trim();
+//         else if (line.includes('الولاية:') || line.includes('المحافظة:')) {
+//           shippingAddress.state = line.replace('الولاية:', '').replace('المحافظة:', '').trim();
+//         }
+//         else if (line.includes('الرمز البريدي:')) shippingAddress.zipCode = line.replace('الرمز البريدي:', '').trim();
+//         else if (line.includes('البلد:')) shippingAddress.country = line.replace('البلد:', '').trim();
+//       });
+      
+//       try {
+//         const cartItems = await getCart(chatId);
+        
+//         if (cartItems.length === 0) {
+//           await bot.sendMessage(chatId, '❌ سلة المشتريات فارغة. لا يمكن إنهاء الشراء.');
+//           return;
+//         }
+        
+//         const orderResult = await processRealOrder(chatId, cartItems, shippingAddress, 'credit_card');
+        
+//         if (!orderResult || !orderResult.success) {
+//           await bot.sendMessage(chatId, '❌ فشل إنشاء الطلب. يرجى المحاولة مرة أخرى.');
+//           return;
+//         }
+        
+//         if (process.env.STRIPE_SECRET_KEY && orderResult.checkout && orderResult.checkout.url) {
+//           // إرسال رابط الدفع الحقيقي
+//           await bot.sendMessage(chatId, `✅ تم إنشاء طلبك بنجاح!\n🆔 رقم الطلب: ${orderResult.order.orderId}\n💰 المبلغ الإجمالي: ${orderResult.order.totalAmount.toFixed(2)} USD`);
+//        console.log( orderResult.checkout.url);
+//           await   bot.sendMessage(chatId, "💳 لإتمام عملية الدفع:", {
+//   reply_markup: {
+//     inline_keyboard: [
+//       [
+//         {
+//           text: "إتمام الدفع",
+//           web_app: { url: orderResult.checkout.url }  // رابط Stripe Checkout
+//         }
+//       ]
+//     ]
+//   }
+// });
+//           await bot.sendMessage(chatId, `💳 يرجى إكمال عملية الدفع عبر الرابط التالي:\n${orderResult.checkout.url}`);
+//         } else {
+//           // وضع التطوير
+//           await bot.sendMessage(chatId, `✅ تم إنشاء طلب تجريبي!\n🆔 رقم الطلب: ${orderResult.order.orderId}\n💰 المبلغ الإجمالي: ${orderResult.order.totalAmount.toFixed(2)} USD`);
+//           await bot.sendMessage(chatId, '🔗 هذا رابط تجريبي للدفع (للتطوير فقط)');
+//         }
+//       } catch (error) {
+//         console.error('Error processing order:', error);
+//         await bot.sendMessage(chatId, '❌ حدث خطأ أثناء معالجة الطلب.');
+//       }
+//     }
+//   };
+  
+//   bot.on('message', addressHandler);
+// }
+//       else if (data === 'cancel_checkout') {
+//         await bot.answerCallbackQuery(callbackQuery.id, { text: 'تم إلغاء عملية الشراء' });
+//         await bot.sendMessage(chatId, '❌ تم إلغاء عملية الشراء.');
+//       }
+//         else if (data.startsWith('ship:')) {
+//         const [, orderId, productId] = data.split(':');
+
+//         const result = simulateShipping(orderId, productId); // تأكد أن هذه الدالة موجودة وتحدث shippedAt
+//         await bot.sendMessage(chatId, result.message);
+//         await bot.answerCallbackQuery(callbackQuery.id, { text: '✅ تم التحديث إلى "تم الشحن"' });
+//       }
+
+//       else if (data.startsWith('deliver:')) {
+//         const [, orderId, productId] = data.split(':');
+
+//         const order = orders.find(o => o.id === orderId);
+//         if (!order) {
+//           await bot.sendMessage(chatId, '❌ الطلب غير موجود.');
+//           return;
+//         }
+
+//         const product = order.products.find(p => p.id === productId);
+//         if (!product) {
+//           await bot.sendMessage(chatId, '❌ المنتج غير موجود.');
+//           return;
+//         }
+
+//         product.shippingStatus = 'delivered';
+//         product.deliveredAt = Date.now();
+//         saveOrders();
+
+//         await bot.sendMessage(chatId, `📬 تم تأكيد تسليم المنتج (${product.title}) بنجاح!`);
+//         await bot.answerCallbackQuery(callbackQuery.id, { text: '📬 تم التحديث إلى "تم التسليم"' });
+//       }
+//     } catch (error) {
+//       console.error('Error handling callback query:', error);
+//       await bot.answerCallbackQuery(callbackQuery.id, { text: 'حدث خطأ أثناء المعالجة.' });
+//     }
+//   });
+bot.on('callback_query', async (callbackQuery) => {
+  const chatId = callbackQuery.message.chat.id;
+  const data = callbackQuery.data;
+
+  try {
+    // إضافة منتج إلى السلة
+    if (data.startsWith('add_to_cart_')) {
+      const productId = data.replace('add_to_cart_', '');
+      let product = allpro?.find(p => p.id == productId);
+
+      // إذا لم يُعثر على المنتج، أعد عرضه تلقائيًا
+      if (!product) {
+        await bot.sendMessage(chatId, '⚠️ يبدو أن هذه الرسالة قديمة والبيانات غير متوفرة حالياً.\n🔄 جاري إعادة عرض المنتج...');
+
+        try {
+          const [amazonResults, aliResults] = await Promise.all([
+            searchAmazonProducts(productId),
+            searchAliExpressProducts(productId)
+          ]);
+          const allResults = [...amazonResults, ...aliResults];
+          product = allResults.find(p => p.id == productId);
+          allpro=allResults;
+          if (!product) {
+            await bot.sendMessage(chatId, '❌ لم يتم العثور على المنتج بعد إعادة البحث.');
+            return;
           }
-        }
-        // console.log(`data :${data}`);
-        // محاكاة إضافة منتج إلى السلة (في التطبيق الحقيقي، ستحتاج إلى البحث عن المنتج أولاً)
-        // const product = {
-        //   id: productId,
-        //   title: `منتج ${productId}`,
-        //   price: '$10.00',
-        //   priceValue: 10.00,
-        //   image: '',
-        //   url: `https://example.com/product/${productId}`,
-        //   affiliate_link: `https://example.com/product/${productId}?aff=123`,
-        //   store: 'Amazon'
-        // };
-        let cleanPrice,cleanPrice2;
-         if (typeof productprice === 'string') {
-        cleanPrice  = Number(String(productprice).replace(/[^0-9.]/g, ""));
-         cleanPrice2 = Number(String(productpriceValue).replace(/[^0-9.]/g, ""));
-         }
-         else{
-          cleanPrice=productprice;
-          cleanPrice2=productpriceValue;
-         }
-          const product = {
-          id: productId,
-          title:producttitle,
-          price:cleanPrice,  
-          priceValue: cleanPrice2,
-          image: productimage,
-          url:productaffiliate_link,
-          affiliate_link: productaffiliate_link,
-          store: productstore
-        };
-        const success = await addToCart(chatId, product);
-        
-        if (success) {
-          await bot.sendMessage(chatId, '✅ تمت إضافة المنتج إلى سلة المشتريات.');
-        } else {
-          await bot.sendMessage(chatId, '❌ فشلت إضافة المنتج إلى السلة. يرجى المحاولة مرة أخرى.');
-        }
-      }
-      else if (data === 'checkout') {
-        await bot.answerCallbackQuery(callbackQuery.id, { text: 'جاري إنهاء عملية الشراء...' });
-        
-        const cartItems = await getCart(chatId);
-        
-        if (cartItems.length === 0) {
-          await bot.sendMessage(chatId, '❌ سلة المشتريات فارغة. لا يمكن إنهاء الشراء.');
+
+          // إعادة عرض المنتج
+          const storeIcon = product.store === 'Amazon' ? '🏪' : '🛒';
+          const imageUrl = product.image || product.thumbnail || product.image_url;
+
+          const message = `
+${storeIcon} *${product.store}*
+📦 ${product.title}
+💰 السعر: ${product.price} ${product.original_price ? `(كان: ${product.original_price})` : ''}
+⭐ التقييم: ${product.rating || 'غير متوفر'}
+🛒 عدد الطلبات: ${product.orders || 'غير متوفر'}
+🚚 الشحن: ${product.shipping || 'غير محدد'}
+${product.discount ? `🎁 خصم: ${product.discount}` : ''}
+🔗 [عرض المنتج](${product.affiliate_link || product.url})
+
+*عمولة: ${(product.commission_rate * 100).toFixed(1)}%*
+          `.trim();
+
+          const keyboard = {
+            inline_keyboard: [[
+              {
+                text: '🛒 إضافة إلى السلة',
+                callback_data: `add_to_cart_${product.id}`
+              }
+            ]]
+          };
+
+          if (imageUrl && imageUrl.startsWith('http')) {
+            await bot.sendPhoto(chatId, imageUrl, {
+              caption: message,
+              parse_mode: 'Markdown',
+              reply_markup: keyboard
+            });
+          } else {
+            await bot.sendMessage(chatId, message, {
+              parse_mode: 'Markdown',
+              reply_markup: keyboard
+            });
+          }
+
+          return; // لا تكمل الإضافة الآن، فقط أعِد العرض
+        } catch (err) {
+          console.error('Error during fallback search:', err);
+          await bot.sendMessage(chatId, '❌ حدث خطأ أثناء محاولة إعادة عرض المنتج.');
           return;
         }
-        
-        try {
-          // طلب معلومات الشحن من المستخدم
-          const shippingOptions = {
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '📋 إدخال عنوان الشحن', callback_data: 'enter_shipping' }],
-                [{ text: '❌ إلغاء', callback_data: 'cancel_checkout' }]
-              ]
-            }
-          };
-          
-          bot.sendMessage(chatId, '🚚 يرجى إدخال عنوان الشحن لإكمال عملية الشراء:', shippingOptions);
-        } catch (error) {
-          await bot.sendMessage(chatId, '❌ فشل إنشاء الطلب. يرجى المحاولة مرة أخرى.');
-        }
       }
-      else if (data === 'clear_cart') {
-        await bot.answerCallbackQuery(callbackQuery.id, { text: 'جاري تفريغ السلة...' });
-        
-        const success = await clearCart(chatId);
-        
-        if (success) {
-          await bot.sendMessage(chatId, '✅ تم تفريغ سلة المشتريات.');
-        } else {
-          await bot.sendMessage(chatId, '❌ فشل تفريغ السلة. يرجى المحاولة مرة أخرى.');
+
+      // تنظيف السعر
+      console.log('pric   '+product.price );
+      console.log('pric2   '+product.original_price );
+
+      const cleanPrice = typeof product.price === 'string'
+        ? Number(String(product.price).replace(/[^0-9.]/g, ''))
+        : product.price;
+       
+        let   cleanPrice2 ;
+        if(product.original_price !=null){
+ cleanPrice2 = typeof product.original_price === 'string'
+        ? Number(String(product.original_price).replace(/[^0-9.]/g, ''))
+        : product.original_price;
+        }else{
+          cleanPrice2=0;
         }
+      console.log('pric new   '+cleanPrice);
+        
+      console.log('pric2  new  '+cleanPrice2);
+      
+
+
+      const productData = {
+        id: product.id,
+        title: product.title,
+        price: cleanPrice||0,
+        priceValue: cleanPrice2||0,
+        image: product.image,
+        url: product.affiliate_link || product.url,
+        affiliate_link: product.affiliate_link,
+        store: product.store
+      };
+
+      const success = await addToCart(chatId, productData);
+        await bot.sendMessage(chatId, '✅ تمت إضافة المنتج إلى السلة');
+
+      await bot.answerCallbackQuery(callbackQuery.id, {
+        text: success ? '✅ تمت إضافة المنتج إلى السلة.' : '❌ فشلت إضافة المنتج.'
+      });
+    }
+    
+
+    // بدء عملية الشراء
+    else if (data === 'checkout') {
+      await bot.answerCallbackQuery(callbackQuery.id, { text: 'جاري إنهاء عملية الشراء...' });
+
+      const cartItems = await getCart(chatId);
+      if (cartItems.length === 0) {
+        await bot.sendMessage(chatId, '❌ سلة المشتريات فارغة. لا يمكن إنهاء الشراء.');
+        return;
       }
-  else if (data === 'enter_shipping') {
-  await bot.answerCallbackQuery(callbackQuery.id, { text: 'جاري إعداد نموذج العنوان...' });
-  
-  const addressInstructions = `📋 يرجى إرسال عنوان الشحن بالشكل التالي:
-  
+
+      const shippingOptions = {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '📋 إدخال عنوان الشحن', callback_data: 'enter_shipping' }],
+            [{ text: '❌ إلغاء', callback_data: 'cancel_checkout' }]
+          ]
+        }
+      };
+
+      await bot.sendMessage(chatId, '🚚 يرجى إدخال عنوان الشحن لإكمال عملية الشراء:', shippingOptions);
+    }
+
+    // تفريغ السلة
+    else if (data === 'clear_cart') {
+      await bot.answerCallbackQuery(callbackQuery.id, { text: 'جاري تفريغ السلة...' });
+      const success = await clearCart(chatId);
+      await bot.sendMessage(chatId, success
+        ? '✅ تم تفريغ سلة المشتريات.'
+        : '❌ فشل تفريغ السلة. يرجى المحاولة مرة أخرى.');
+    }
+
+    // إدخال عنوان الشحن
+    else if (data === 'enter_shipping') {
+      await bot.answerCallbackQuery(callbackQuery.id, { text: 'جاري إعداد نموذج العنوان...' });
+
+      const addressInstructions = `📋 يرجى إرسال عنوان الشحن بالشكل التالي:
+
 الشارع: [اسم الشارع ورقم المنزل]
 المدينة: [اسم المدينة]
 الولاية/المحافظة: [اسم الولاية]
@@ -1432,114 +1799,106 @@ console.log("ــــــــــــــــــــــــــــت");
 الرمز البريدي: 12345
 البلد: السعودية`;
 
-  bot.sendMessage(chatId, addressInstructions);
-  
-  const addressHandler = async (addressMsg) => {
-    if (addressMsg.chat.id === chatId) {
-      bot.removeListener('message', addressHandler);
-      
-      const addressText = addressMsg.text;
-      const shippingAddress = {};
-      
-      // معالجة العنوان
-      const addressLines = addressText.split('\n');
-      addressLines.forEach(line => {
-        if (line.includes('الشارع:')) shippingAddress.street = line.replace('الشارع:', '').trim();
-        else if (line.includes('المدينة:')) shippingAddress.city = line.replace('المدينة:', '').trim();
-        else if (line.includes('الولاية:') || line.includes('المحافظة:')) {
-          shippingAddress.state = line.replace('الولاية:', '').replace('المحافظة:', '').trim();
+      await bot.sendMessage(chatId, addressInstructions);
+
+      const addressHandler = async (addressMsg) => {
+        if (addressMsg.chat.id !== chatId) return;
+        bot.removeListener('message', addressHandler);
+
+        const addressText = addressMsg.text;
+        const shippingAddress = {};
+        addressText.split('\n').forEach(line => {
+          if (line.includes('الشارع:')) shippingAddress.street = line.replace('الشارع:', '').trim();
+          else if (line.includes('المدينة:')) shippingAddress.city = line.replace('المدينة:', '').trim();
+          else if (line.includes('الولاية:') || line.includes('المحافظة:')) {
+            shippingAddress.state = line.replace('الولاية:', '').replace('المحافظة:', '').trim();
+          }
+          else if (line.includes('الرمز البريدي:')) shippingAddress.zipCode = line.replace('الرمز البريدي:', '').trim();
+          else if (line.includes('البلد:')) shippingAddress.country = line.replace('البلد:', '').trim();
+        });
+
+        try {
+          const cartItems = await getCart(chatId);
+          if (cartItems.length === 0) {
+            await bot.sendMessage(chatId, '❌ سلة المشتريات فارغة. لا يمكن إنهاء الشراء.');
+            return;
+          }
+
+          const orderResult = await processRealOrder(chatId, cartItems, shippingAddress, 'credit_card');
+          if (!orderResult || !orderResult.success) {
+            await bot.sendMessage(chatId, '❌ فشل إنشاء الطلب. يرجى المحاولة مرة أخرى.');
+            return;
+          }
+
+          const orderId = orderResult.order.orderId;
+          const total = orderResult.order.totalAmount.toFixed(2);
+          const checkoutUrl = orderResult.checkout?.url;
+
+          await bot.sendMessage(chatId, `✅ تم إنشاء طلبك بنجاح!\n🆔 رقم الطلب: ${orderId}\n💰 المبلغ الإجمالي: ${total} USD`);
+
+          if (checkoutUrl) {
+            await bot.sendMessage(chatId, "💳 لإتمام عملية الدفع:", {
+              reply_markup: {
+                inline_keyboard: [[{ text: "إتمام الدفع", web_app: { url: checkoutUrl } }]]
+              }
+            });
+            await bot.sendMessage(chatId, `💳 يرجى إكمال عملية الدفع عبر الرابط التالي:\n${checkoutUrl}`);
+          } else {
+            await bot.sendMessage(chatId, '🔗 هذا رابط تجريبي للدفع (للتطوير فقط)');
+          }
+        } catch (error) {
+          console.error('Error processing order:', error);
+          await bot.sendMessage(chatId, '❌ حدث خطأ أثناء معالجة الطلب.');
         }
-        else if (line.includes('الرمز البريدي:')) shippingAddress.zipCode = line.replace('الرمز البريدي:', '').trim();
-        else if (line.includes('البلد:')) shippingAddress.country = line.replace('البلد:', '').trim();
-      });
-      
-      try {
-        const cartItems = await getCart(chatId);
-        
-        if (cartItems.length === 0) {
-          await bot.sendMessage(chatId, '❌ سلة المشتريات فارغة. لا يمكن إنهاء الشراء.');
-          return;
-        }
-        
-        const orderResult = await processRealOrder(chatId, cartItems, shippingAddress, 'credit_card');
-        
-        if (!orderResult || !orderResult.success) {
-          await bot.sendMessage(chatId, '❌ فشل إنشاء الطلب. يرجى المحاولة مرة أخرى.');
-          return;
-        }
-        
-        if (process.env.STRIPE_SECRET_KEY && orderResult.checkout && orderResult.checkout.url) {
-          // إرسال رابط الدفع الحقيقي
-          await bot.sendMessage(chatId, `✅ تم إنشاء طلبك بنجاح!\n🆔 رقم الطلب: ${orderResult.order.orderId}\n💰 المبلغ الإجمالي: ${orderResult.order.totalAmount.toFixed(2)} USD`);
-       console.log( orderResult.checkout.url);
-          await   bot.sendMessage(chatId, "💳 لإتمام عملية الدفع:", {
-  reply_markup: {
-    inline_keyboard: [
-      [
-        {
-          text: "إتمام الدفع",
-          web_app: { url: orderResult.checkout.url }  // رابط Stripe Checkout
-        }
-      ]
-    ]
+      };
+
+      bot.on('message', addressHandler);
+    }
+
+    // إلغاء الشراء
+    else if (data === 'cancel_checkout') {
+      await bot.answerCallbackQuery(callbackQuery.id, { text: 'تم إلغاء عملية الشراء' });
+      await bot.sendMessage(chatId, '❌ تم إلغاء عملية الشراء.');
+    }
+
+    // تحديث حالة الشحن
+    else if (data.startsWith('ship:')) {
+      const [, orderId, productId] = data.split(':');
+          const result = simulateShipping(orderId, productId); // تأكد أن هذه الدالة موجودة وتحدث shippedAt
+      await bot.sendMessage(chatId, result.message);
+      await bot.answerCallbackQuery(callbackQuery.id, { text: '✅ تم التحديث إلى "تم الشحن"' });
+    }
+
+    // تأكيد التسليم
+    else if (data.startsWith('deliver:')) {
+      const [, orderId, productId] = data.split(':');
+      const order = orders.find(o => o.id === orderId);
+
+      if (!order) {
+        await bot.sendMessage(chatId, '❌ الطلب غير موجود.');
+        return;
+      }
+
+      const product = order.products.find(p => p.id === productId);
+      if (!product) {
+        await bot.sendMessage(chatId, '❌ المنتج غير موجود.');
+        return;
+      }
+
+      product.shippingStatus = 'delivered';
+      product.deliveredAt = Date.now();
+      saveOrders(); // تأكد أن هذه الدالة تحفظ التحديثات
+
+      await bot.sendMessage(chatId, `📬 تم تأكيد تسليم المنتج (${product.title}) بنجاح!`);
+      await bot.answerCallbackQuery(callbackQuery.id, { text: '📬 تم التحديث إلى "تم التسليم"' });
+    }
+
+  } catch (error) {
+    console.error('Error handling callback query:', error);
+    await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ حدث خطأ أثناء المعالجة.' });
   }
 });
-          await bot.sendMessage(chatId, `💳 يرجى إكمال عملية الدفع عبر الرابط التالي:\n${orderResult.checkout.url}`);
-        } else {
-          // وضع التطوير
-          await bot.sendMessage(chatId, `✅ تم إنشاء طلب تجريبي!\n🆔 رقم الطلب: ${orderResult.order.orderId}\n💰 المبلغ الإجمالي: ${orderResult.order.totalAmount.toFixed(2)} USD`);
-          await bot.sendMessage(chatId, '🔗 هذا رابط تجريبي للدفع (للتطوير فقط)');
-        }
-      } catch (error) {
-        console.error('Error processing order:', error);
-        await bot.sendMessage(chatId, '❌ حدث خطأ أثناء معالجة الطلب.');
-      }
-    }
-  };
-  
-  bot.on('message', addressHandler);
-}
-      else if (data === 'cancel_checkout') {
-        await bot.answerCallbackQuery(callbackQuery.id, { text: 'تم إلغاء عملية الشراء' });
-        await bot.sendMessage(chatId, '❌ تم إلغاء عملية الشراء.');
-      }
-        else if (data.startsWith('ship:')) {
-        const [, orderId, productId] = data.split(':');
 
-        const result = simulateShipping(orderId, productId); // تأكد أن هذه الدالة موجودة وتحدث shippedAt
-        await bot.sendMessage(chatId, result.message);
-        await bot.answerCallbackQuery(callbackQuery.id, { text: '✅ تم التحديث إلى "تم الشحن"' });
-      }
-
-      else if (data.startsWith('deliver:')) {
-        const [, orderId, productId] = data.split(':');
-
-        const order = orders.find(o => o.id === orderId);
-        if (!order) {
-          await bot.sendMessage(chatId, '❌ الطلب غير موجود.');
-          return;
-        }
-
-        const product = order.products.find(p => p.id === productId);
-        if (!product) {
-          await bot.sendMessage(chatId, '❌ المنتج غير موجود.');
-          return;
-        }
-
-        product.shippingStatus = 'delivered';
-        product.deliveredAt = Date.now();
-        saveOrders();
-
-        await bot.sendMessage(chatId, `📬 تم تأكيد تسليم المنتج (${product.title}) بنجاح!`);
-        await bot.answerCallbackQuery(callbackQuery.id, { text: '📬 تم التحديث إلى "تم التسليم"' });
-      }
-    } catch (error) {
-      console.error('Error handling callback query:', error);
-      await bot.answerCallbackQuery(callbackQuery.id, { text: 'حدث خطأ أثناء المعالجة.' });
-    }
-  });
-
-  // ========== أمر بدء عملية الشراء الحقيقية ==========
   bot.onText(/\/checkout/, async (msg) => {
     const chatId = msg.chat.id;
     
@@ -1762,13 +2121,6 @@ app.post('/api/create-checkout-session', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-
-
-
-
-
-
-
 
   app.post('/api/cart', async (req, res) => {
     try {
