@@ -1,0 +1,18 @@
+[
+  {
+    "name": "__rtbh.lid",
+    "value": "%7B%22eventType%22%3A%22lid%22%2C%22id%22%3A%22XD7z98FaYFXoDAmr9pxH%22%2C%22expiryDate%22%3A%222026-09-02T16%3A04%3A11.168Z%22%7D",
+    "domain": "best.aliexpress.com",
+    "path": "/",
+    "httpOnly": false,
+    "secure": true
+  },
+  {
+    "name": "_baxia_sec_cookie_",
+    "value": "%257B%2522lwrid%2522%253A%2522AgGYx%25252FZzbcuGvZ%25252FH35ufX39uI%25252BOq%2522%252C%2522lwrtk%2522%253A%2522AAIEaLd3yjEWgRbVz9H3Y%252FlGZxkrK8EQDfO3EpplelyZeNFIPzUfBTE%253D%2522%252C%2522epssw%2522%253A%252210*M5Ass6oFluegz-XQ6sFQQK39oRPci9PaA9_0j-XQssIQORv2t-S2VOnyssFebND0UNxMhmR56ApsFEsU7nHFaFVskr1JyMC5zFFOtEPkzFuSU4rOOmmTCgxurOcWiodSW9zHwob4mtSOOOOO4nqOtE8gmbr_dY64Q-MGIqzMV9q8tOXbfEIlYe8kcYB683FAU33sfoNmviXO56BZMApdbW9QjPhWh9Vkz0Yd3hssUe7C67VZssuZjNVSjY_ijay_FOsZIWJAtQsjYCSLO_ntt6TQDHO_GtRJ4X60JL_TVdRor41wYitBV8V5ocb8rhBM4hWVJmHN%2522%252C%2522tfstk%2522%253A%2522g5nKQla6QCAngR5FpbYMqBPCMSpgvFDeKXkfq7VhPfhtwjIhqYTee3hmd72kLWVSWbGa-Wi-UgeSFbJUZp8iLvrzVIADinDELGxzc7dgVLM_q8LTEDt-LvrPQDmFXAkFeKaAQ8ZSNlN_e-q5d7sBBPw0FusQPM_115y7VuaQRPt_L8bQdwwBBANaFuNSNy9Tf5y7V7G7VbLNp7XQwg3ImzX6hssdDinTpyFR-Wj-Wcs0JSMQ6g_sXJCUGvNOVgNvliT-BvAd0AqEqjemthsKMYMqPPnR1IFrXAiIPA5pwkHiTmEIDBI3IlPUl4a9dHMTvWU-2P6c7k3ST0UEJTJqCkGZuSzB7Cytxm48gPC6OADTOr3-tCS7tqHs6rmGsiqjufn8losr2mmvGH50M8bBBdQPzywN3gbpHFbI7dyTidPfzazKARFDBdQPzywaBSvaGa7zJD1..%2522%257D",
+    "domain": ".aliexpress.com",
+    "path": "/",
+    "httpOnly": false,
+    "secure": true
+  }
+]
