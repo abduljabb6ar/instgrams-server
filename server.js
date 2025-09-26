@@ -132,6 +132,7 @@ app.get('/webhook', (req, res) => {
 // ✅ استقبال رسائل ماسنجر والرد عليها تلقائيًا
 app.post('/webhook', express.json(), async (req, res) => {
   const body = req.body;
+console.log('📥 تم استقبال POST /webhook:', JSON.stringify(req.body, null, 2));
 
   if (body.object === 'page') {
     for (const entry of body.entry) {
