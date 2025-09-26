@@ -112,6 +112,99 @@ async function replyToComment(commentId, commentText, postText) {
 
   }
 }
+// ✅ تحقق من Webhook عند الاشتراك من Facebook Developer Console
+app.get('/webhook', (req, res) => {
+  const VERIFY_TOKEN = 'abduljabbar';
+
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+    console.log('✅ تم التحقق من Webhook بنجاح');
+    res.status(200).send(challenge);
+  } else {
+    console.log('❌ فشل التحقق من Webhook');
+    res.sendStatus(403);
+  }
+});
+
+// ✅ استقبال رسائل ماسنجر والرد عليها تلقائيًا
+app.post('/webhook', express.json(), async (req, res) => {
+  const body = req.body;
+
+  if (body.object === 'page') {
+    for (const entry of body.entry) {
+      for (const event of entry.messaging) {
+        const senderId = event.sender.id;
+        const messageText = event.message?.text;
+
+        if (messageText) {
+          console.log(`📩 رسالة من ${senderId}: ${messageText}`);
+
+          try {
+            // تحليل النية باستخدام Gemini
+            const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+            const intentPrompt = `
+أنت مصنف نوايا ذكي. مهمتك تحديد نوع الرسالة التالية بدقة عالية.
+التصنيفات الممكنة:
+- سؤال
+- شكر
+- سخرية
+- طلب
+- عام
+
+الرسالة: "${messageText}"
+`;
+            const intentResult = await model.generateContent(intentPrompt);
+            const intent = intentResult.response.text().trim().toLowerCase();
+            console.log(`🧠 نية الرسالة: ${intent}`);
+
+            let replyPrompt = '';
+
+            switch (intent) {
+              case 'سؤال':
+                replyPrompt = `شخص أرسل رسالة فيها سؤال: "${messageText}". أجب عليه بطريقة ذكية وواضحة.`;
+                break;
+              case 'شكر':
+                replyPrompt = `شخص أرسل رسالة فيها شكر: "${messageText}". رد عليه بلطافة وامتنان.`;
+                break;
+              case 'سخرية':
+                replyPrompt = `شخص أرسل رسالة ساخرة: "${messageText}". رد عليه بلطافة دون استفزاز.`;
+                break;
+              case 'طلب':
+                replyPrompt = `شخص أرسل رسالة فيها طلب: "${messageText}". حاول مساعدته أو توجيهه.`;
+                break;
+              default:
+                replyPrompt = `شخص أرسل رسالة: "${messageText}". رد عليه برد ودي ومحايد.`;
+            }
+
+            const replyResult = await model.generateContent(replyPrompt);
+            const reply = replyResult.response.text().trim();
+            console.log(`✉️ الرد: ${reply}`);
+
+            // إرسال الرد عبر ماسنجر
+            await axios.post(`https://graph.facebook.com/v19.0/me/messages`, {
+              recipient: { id: senderId },
+              message: { text: reply },
+              messaging_type: 'RESPONSE',
+              access_token: PAGE_ACCESS_TOKEN
+            });
+
+            console.log(`✅ تم الرد على ${senderId}`);
+          } catch (err) {
+            console.error(`❌ فشل الرد على ${senderId}:`, JSON.stringify(err.response?.data, null, 2) || err.message);
+          }
+        }
+      }
+    }
+
+    res.sendStatus(200);
+  } else {
+    res.sendStatus(404);
+  }
+});
+
 
 app.listen(PORT, () => {
   console.log(`🚀 Facebook Smart Bot يعمل على http://localhost:${PORT}`);
