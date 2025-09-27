@@ -6,112 +6,112 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const app = express();
 const PORT = 8000;
-
+app.use(bodyParser.json());
 const PAGE_ID = process.env.PAGE_ID;
 const PAGE_NAME = process.env.PAGE_NAME;
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const repliedComments = new Set();
 
-setInterval(async () => {
-  console.log(`📡 بدء فحص منشورات الصفحة...`);
+// setInterval(async () => {
+//   console.log(`📡 بدء فحص منشورات الصفحة...`);
 
-  try {
-    const res = await axios.get(`https://graph.facebook.com/v19.0/${PAGE_ID}/feed`, {
-      params: {
-        access_token: PAGE_ACCESS_TOKEN,
-        fields: 'id,message,comments{message,id}'
+//   try {
+//     const res = await axios.get(`https://graph.facebook.com/v19.0/${PAGE_ID}/feed`, {
+//       params: {
+//         access_token: PAGE_ACCESS_TOKEN,
+//         fields: 'id,message,comments{message,id}'
 
-      }
-    });
+//       }
+//     });
 
-    const posts = res.data.data;
+//     const posts = res.data.data;
 
-    for (const post of posts) {
-      const postId = post.id;
-      const postText = post.message || '';
-      console.log(`📝 منشور (${postId}): ${postText}`);
+//     for (const post of posts) {
+//       const postId = post.id;
+//       const postText = post.message || '';
+//       console.log(`📝 منشور (${postId}): ${postText}`);
 
-      if (post.comments && post.comments.data) {
-        for (const comment of post.comments.data) {
-          const commentId = comment.id;
-          const commentText = comment.message || '';
-          console.log(`💬 تعليق (${commentId}): ${commentText}`);
+//       if (post.comments && post.comments.data) {
+//         for (const comment of post.comments.data) {
+//           const commentId = comment.id;
+//           const commentText = comment.message || '';
+//           console.log(`💬 تعليق (${commentId}): ${commentText}`);
 
-          if (!repliedComments.has(commentId)) {
-            console.log(`🤖 جاري الرد على التعليق...`);
-            await replyToComment(commentId, commentText, postText);
-            repliedComments.add(commentId);
-            console.log(`✅ تم الرد على (${commentId})`);
-          } else {
-            console.log(`⏭️ تم تجاهل التعليق (${commentId}) لأنه تم الرد عليه مسبقًا.`);
-          }
-        }
-      } else {
-        console.log(`📭 لا توجد تعليقات على المنشور (${postId}) حتى الآن.`);
-      }
-    }
-  } catch (err) {
-    console.error('❌ خطأ أثناء جلب المنشورات:', JSON.stringify(err.response?.data, null, 2));
-  }
+//           if (!repliedComments.has(commentId)) {
+//             console.log(`🤖 جاري الرد على التعليق...`);
+//             await replyToComment(commentId, commentText, postText);
+//             repliedComments.add(commentId);
+//             console.log(`✅ تم الرد على (${commentId})`);
+//           } else {
+//             console.log(`⏭️ تم تجاهل التعليق (${commentId}) لأنه تم الرد عليه مسبقًا.`);
+//           }
+//         }
+//       } else {
+//         console.log(`📭 لا توجد تعليقات على المنشور (${postId}) حتى الآن.`);
+//       }
+//     }
+//   } catch (err) {
+//     console.error('❌ خطأ أثناء جلب المنشورات:', JSON.stringify(err.response?.data, null, 2));
+//   }
 
-  console.log(`⏳ انتهاء الدورة، سيتم الفحص مرة أخرى بعد دقيقة...`);
-}, 60000);
+//   console.log(`⏳ انتهاء الدورة، سيتم الفحص مرة أخرى بعد دقيقة...`);
+// }, 60000);
   
-async function replyToComment(commentId, commentText, postText) {
-  try {
-    console.log(`🧠 تحليل التعليق: ${commentText}`);
+// async function replyToComment(commentId, commentText, postText) {
+//   try {
+//     console.log(`🧠 تحليل التعليق: ${commentText}`);
 
-    const intentPrompt = `
-أنت مصنف نوايا ذكي. مهمتك تحديد نوع التعليق التالي بدقة عالية.
-التصنيفات الممكنة:
-- سؤال
-- شكر
-- سخرية
-- طلب
-- عام
+//     const intentPrompt = `
+// أنت مصنف نوايا ذكي. مهمتك تحديد نوع التعليق التالي بدقة عالية.
+// التصنيفات الممكنة:
+// - سؤال
+// - شكر
+// - سخرية
+// - طلب
+// - عام
 
-التعليق: "${commentText}"
-`;
+// التعليق: "${commentText}"
+// `;
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
-    const intentResult = await model.generateContent(intentPrompt);
-    const intent = intentResult.response.text().trim().toLowerCase();
-    console.log(intent);
+//     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+//     const intentResult = await model.generateContent(intentPrompt);
+//     const intent = intentResult.response.text().trim().toLowerCase();
+//     console.log(intent);
 
-    let replyPrompt = '';
+//     let replyPrompt = '';
 
-    switch (intent) {
-      case 'سؤال':
-        replyPrompt = `شخص كتب تعليقًا فيه سؤال: "${commentText}" وكان المنشور يقول: "${postText}". أجب عليه بطريقة ذكية وواضحة.`;
-        break;
-      case 'شكر':
-        replyPrompt = `شخص كتب تعليقًا فيه شكر: "${commentText}". رد عليه بلطافة وامتنان.`;
-        break;
-      case 'سخرية':
-        replyPrompt = `شخص كتب تعليقًا ساخرًا: "${commentText}". رد عليه بلطافة دون استفزاز.`;
-        break;
-      case 'طلب':
-        replyPrompt = `شخص كتب تعليقًا فيه طلب: "${commentText}". حاول مساعدته أو توجيهه.`;
-        break;
-      default:
-        replyPrompt = `شخص كتب تعليقًا: "${commentText}". وكان المنشور يقول: "${postText}". رد عليه برد ودي ومحايد.`;
-    }
+//     switch (intent) {
+//       case 'سؤال':
+//         replyPrompt = `شخص كتب تعليقًا فيه سؤال: "${commentText}" وكان المنشور يقول: "${postText}". أجب عليه بطريقة ذكية وواضحة.`;
+//         break;
+//       case 'شكر':
+//         replyPrompt = `شخص كتب تعليقًا فيه شكر: "${commentText}". رد عليه بلطافة وامتنان.`;
+//         break;
+//       case 'سخرية':
+//         replyPrompt = `شخص كتب تعليقًا ساخرًا: "${commentText}". رد عليه بلطافة دون استفزاز.`;
+//         break;
+//       case 'طلب':
+//         replyPrompt = `شخص كتب تعليقًا فيه طلب: "${commentText}". حاول مساعدته أو توجيهه.`;
+//         break;
+//       default:
+//         replyPrompt = `شخص كتب تعليقًا: "${commentText}". وكان المنشور يقول: "${postText}". رد عليه برد ودي ومحايد.`;
+//     }
 
-    const replyResult = await model.generateContent(replyPrompt);
-    const reply = replyResult.response.text().trim();
-    console.log(reply);
-    await axios.post(`https://graph.facebook.com/v19.0/${commentId}/comments`, {
-      message: reply,
-      access_token: PAGE_ACCESS_TOKEN
-    });
+//     const replyResult = await model.generateContent(replyPrompt);
+//     const reply = replyResult.response.text().trim();
+//     console.log(reply);
+//     await axios.post(`https://graph.facebook.com/v19.0/${commentId}/comments`, {
+//       message: reply,
+//       access_token: PAGE_ACCESS_TOKEN
+//     });
 
-    console.log(`✅ تم الرد على ${commentId} (${intent}): ${reply}`);
-  } catch (err) {
-    console.error(`❌ فشل الرد على ${commentId}:`, JSON.stringify(err.response?.data, null, 2) || err.message, err.stack);
+//     console.log(`✅ تم الرد على ${commentId} (${intent}): ${reply}`);
+//   } catch (err) {
+//     console.error(`❌ فشل الرد على ${commentId}:`, JSON.stringify(err.response?.data, null, 2) || err.message, err.stack);
 
-  }
-}
+//   }
+// }
 // ✅ تحقق من Webhook عند الاشتراك من Facebook Developer Console
 // app.get('/webhook', (req, res) => {
 //   const VERIFY_TOKEN = 'abduljabbar';
