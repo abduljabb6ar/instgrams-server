@@ -259,10 +259,16 @@ app.post('/webhook', (req, res) => {
         }
 
         // حالة الرسالة (تم التسليم، القراءة، إلخ)
-        if (value.statuses) {
-          const status = value.statuses[0];
-          console.log(`📊 حالة الرسالة: ${status.status}`);
-        }
+      if (value.statuses) {
+  const status = value.statuses[0];
+  console.log(`📊 حالة الرسالة: ${status.status}`);
+
+  if (status.errors) {
+    console.log(`❌ تفاصيل الخطأ: ${JSON.stringify(status.errors, null, 2)}`);
+  }
+}
+
+        
       });
     });
 
