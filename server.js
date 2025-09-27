@@ -206,20 +206,38 @@ const repliedComments = new Set();
 //     res.sendStatus(404);
 //   }
 // });
+
 app.get('/webhook', (req, res) => {
-  const verifyToken = process.env.WHATSAPP_TOKEN; // اختر رمز تحقق خاص بك
+  const verifyToken = 'abduljabbar'; // تأكد أنها نفس القيمة التي أدخلتها في Meta
 
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
-  if (mode && token === verifyToken) {
+  if (mode === 'subscribe' && token === verifyToken) {
     console.log('✅ Webhook verified');
-    res.status(200).send(challenge);
+    res.status(200).send(challenge); // يجب أن يُرجع challenge مباشرة
   } else {
+    console.log('❌ فشل التحقق من Webhook');
     res.sendStatus(403);
   }
 });
+
+
+// app.get('/webhook', (req, res) => {
+//   const verifyToken = process.env.WHATSAPP_TOKEN; // اختر رمز تحقق خاص بك
+
+//   const mode = req.query['hub.mode'];
+//   const token = req.query['hub.verify_token'];
+//   const challenge = req.query['hub.challenge'];
+
+//   if (mode && token === verifyToken) {
+//     console.log('✅ Webhook verified');
+//     res.status(200).send(challenge);
+//   } else {
+//     res.sendStatus(403);
+//   }
+// });
 
 // استقبال الأحداث من WhatsApp
 app.post('/webhook', (req, res) => {
