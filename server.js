@@ -297,6 +297,10 @@ app.post('/webhook', async (req, res) => {
               const replyResult = await model.generateContent(replyPrompt);
               const reply = replyResult.response.text().trim();
               console.log(`✉️ الرد: ${reply}`);
+const cleanReply = reply
+  .replace(/\n/g, ' ')        // إزالة السطور الجديدة
+  .replace(/\t/g, ' ')        // إزالة علامات التبويب
+  .replace(/ {5,}/g, '    '); // تقليل المسافات المتتالية إلى 4 كحد أقصى
 
               // إرسال الرد عبر واتساب
               await axios.post(`https://graph.facebook.com/v19.0/${process.env.WHATSAPP_PHONE_ID}/messages`, {
@@ -310,7 +314,7 @@ app.post('/webhook', async (req, res) => {
       {
         type: "body",
         parameters: [
-          { type: "text", text: reply } // رد Gemini هنا
+          { type: "text", text: cleanReply } // رد Gemini هنا
         ]
       }
     ]
