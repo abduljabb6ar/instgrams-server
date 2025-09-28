@@ -300,16 +300,27 @@ app.post('/webhook', async (req, res) => {
 
               // إرسال الرد عبر واتساب
               await axios.post(`https://graph.facebook.com/v19.0/${process.env.WHATSAPP_PHONE_ID}/messages`, {
-                messaging_product: "whatsapp",
-                to: from,
-                type: "text",
-                text: { body: reply }
-              }, {
-                headers: {
-                  Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-                  "Content-Type": "application/json"
-                }
-              });
+              messaging_product: "whatsapp",
+  to: from,
+  type: "template",
+  template: {
+    name: "hello_world",
+    language: { code: "en_US" },
+    components: [
+      {
+        type: "body",
+        parameters: [
+          { type: "text", text: reply } // رد Gemini هنا
+        ]
+      }
+    ]
+  }
+}, {
+  headers: {
+    Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+    "Content-Type": "application/json"
+  }
+});
 
               console.log(`✅ تم الرد على ${from}`);
             } catch (err) {
