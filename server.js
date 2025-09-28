@@ -303,21 +303,12 @@ const cleanReply = reply
   .replace(/ {5,}/g, '    '); // تقليل المسافات المتتالية إلى 4 كحد أقصى
 
               // إرسال الرد عبر واتساب
-              await axios.post(`https://graph.facebook.com/v19.0/${process.env.WHATSAPP_PHONE_ID}/messages`, {
-              messaging_product: "whatsapp",
+           await axios.post(`https://graph.facebook.com/v19.0/${process.env.WHATSAPP_PHONE_ID}/messages`, {
+  messaging_product: "whatsapp",
   to: from,
-  type: "template",
-  template: {
-    name: "hello_world",
-    language: { code: "en_US" },
-    components: [
-      {
-        type: "body",
-        parameters: [
-          { type: "text", text: cleanReply } // رد Gemini هنا
-        ]
-      }
-    ]
+  type: "text",
+  text: {
+    body: cleanReply // رد Gemini بعد التنظيف
   }
 }, {
   headers: {
@@ -325,6 +316,7 @@ const cleanReply = reply
     "Content-Type": "application/json"
   }
 });
+
 
               console.log(`✅ تم الرد على ${from}`);
             } catch (err) {
