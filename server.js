@@ -30,30 +30,35 @@ app.get('/webhook', (req, res) => {
 // ===== Webhook Receiver =====
 app.post('/webhook', async (req, res) => {
   try {
-    console.log(JSON.stringify(req.body, null, 2));
     const body = req.body;
+    console.log("📥 حدث وارد من Instagram:");
+    console.log(JSON.stringify(body, null, 2));
 
     if (body.object === 'instagram') {
       body.entry.forEach(async (entry) => {
         entry.messaging?.forEach(async (event) => {
+          // تجاهل أحداث القراءة
+          if (event.read) {
+            console.log("👀 تم قراءة رسالة:", event.read.mid);
+            return;
+          }
+
+          // تجاهل أحداث التعديل لأنها لا تحتوي على نص مباشر
+          if (event.message_edit) {
+            console.log("✏️ تعديل رسالة (message_edit) تم تجاهله:", event.message_edit.mid);
+            return;
+          }
+
+          // الرد فقط على الرسائل النصية الجديدة
           const messageText = event.message?.text;
           const conversationId = event.conversation?.id;
 
-          // معالجة حالة message_edit مع num_edit = 0
-          if (!messageText && event.message_edit?.mid && event.message_edit?.num_edit === 0) {
-            const mid = event.message_edit.mid;
-            const fetchedText = await fetchMessageText(mid);
-            if (fetchedText) {
-              const replyText = await getReplyFromGemini(fetchedText);
-              await sendInstagramMessage(event.sender?.id, replyText);
-            }
-          }
-
-          // معالجة الرسائل العادية
-          if (conversationId && messageText) {
-            console.log(`📩 رسالة: ${messageText}`);
+          if (messageText && conversationId) {
+            console.log(`📩 رسالة جديدة: ${messageText}`);
             const replyText = await getReplyFromGemini(messageText);
             await sendInstagramMessage(conversationId, replyText);
+          } else {
+            console.log("⚠️ حدث لا يحتوي على رسالة قابلة للرد.");
           }
         });
       });
