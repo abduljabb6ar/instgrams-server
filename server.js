@@ -35,21 +35,20 @@ app.get('/webhook', (req, res) => {
 app.post('/webhook', async (req, res) => {
   try {
     const body = req.body;
-
+console.log(JSON.stringify(req.body, null, 2));
     if (body.object === 'instagram') {
       body.entry.forEach(async (entry) => {
-        if (entry.messaging) {
-          entry.messaging.forEach(async (event) => {
-            const conversationId = event.conversation?.id;
-            const messageText = event.message?.text;
+        entry.changes?.forEach(async (change) => {
+          const value = change.value;
+          const messageText = value?.message?.text;
+          const conversationId = value?.conversation?.id;
 
-            if (conversationId && messageText) {
-              console.log(`📩 رسالة: ${messageText}`);
-              const replyText = await getReplyFromGemini(messageText);
-              await sendInstagramMessage(conversationId, replyText);
-            }
-          });
-        }
+          if (conversationId && messageText) {
+            console.log(`📩 رسالة: ${messageText}`);
+            const replyText = await getReplyFromGemini(messageText);
+            await sendInstagramMessage(conversationId, replyText);
+          }
+        });
       });
       res.sendStatus(200);
     } else {
@@ -60,6 +59,7 @@ app.post('/webhook', async (req, res) => {
     res.sendStatus(500);
   }
 });
+
 
 // ===== Gemini Handler =====
 async function getReplyFromGemini(messageText) {
