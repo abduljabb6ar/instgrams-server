@@ -1,153 +1,424 @@
 
+
+
+
+require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 const bodyParser = require('body-parser');
-require('dotenv').config();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const app = express();
-const PORT = 8000;
 app.use(bodyParser.json());
-const PAGE_ID = process.env.PAGE_ID;
-const PAGE_NAME = process.env.PAGE_NAME;
-const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
+
+// إعدادات من .env
+const VERIFY_TOKEN = process.env.INSTGRAM_TOKN;
+const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN; // التوكن من Meta
+const IG_USER_ID = process.env.IG_USER_ID; // instagram_business_account id
+
+// تهيئة Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const repliedComments = new Set();
 
-// setInterval(async () => {
-//   console.log(`📡 بدء فحص منشورات الصفحة...`);
+// ===== Webhook Verification =====
+app.get('/webhook', (req, res) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
 
-//   try {
-//     const res = await axios.get(`https://graph.facebook.com/v19.0/${PAGE_ID}/feed`, {
-//       params: {
-//         access_token: PAGE_ACCESS_TOKEN,
-//         fields: 'id,message,comments{message,id}'
+  if (mode && token) {
+    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+      console.log('✅ Webhook verified');
+      res.status(200).send(challenge);
+    } else {
+      res.sendStatus(403);
+    }
+  }
+});
 
-//       }
-//     });
+// ===== Webhook Receiver =====
+app.post('/webhook', async (req, res) => {
+  try {
+    const body = req.body;
 
-//     const posts = res.data.data;
+    if (body.object === 'instagram') {
+      body.entry.forEach(async (entry) => {
+        if (entry.messaging) {
+          entry.messaging.forEach(async (event) => {
+            if (event.message && event.sender && event.sender.id) {
+              const senderId = event.sender.id;
+              const messageText = event.message.text || '';
 
-//     for (const post of posts) {
-//       const postId = post.id;
-//       const postText = post.message || '';
-//       console.log(`📝 منشور (${postId}): ${postText}`);
+              console.log(`📩 رسالة من ${senderId}: ${messageText}`);
 
-//       if (post.comments && post.comments.data) {
-//         for (const comment of post.comments.data) {
-//           const commentId = comment.id;
-//           const commentText = comment.message || '';
-//           console.log(`💬 تعليق (${commentId}): ${commentText}`);
+              // استدعاء Gemini لتصنيف الرسالة / إنشاء رد
+              const replyText = await getReplyFromGemini(messageText);
 
-//           if (!repliedComments.has(commentId)) {
-//             console.log(`🤖 جاري الرد على التعليق...`);
-//             await replyToComment(commentId, commentText, postText);
-//             repliedComments.add(commentId);
-//             console.log(`✅ تم الرد على (${commentId})`);
-//           } else {
-//             console.log(`⏭️ تم تجاهل التعليق (${commentId}) لأنه تم الرد عليه مسبقًا.`);
-//           }
-//         }
-//       } else {
-//         console.log(`📭 لا توجد تعليقات على المنشور (${postId}) حتى الآن.`);
-//       }
-//     }
-//   } catch (err) {
-//     console.error('❌ خطأ أثناء جلب المنشورات:', JSON.stringify(err.response?.data, null, 2));
-//   }
+              // إرسال الرد للمستخدم عبر Graph API
+              await sendInstagramMessage(senderId, replyText);
+            }
+          });
+        }
+      });
+      res.sendStatus(200);
+    } else {
+      res.sendStatus(404);
+    }
+  } catch (err) {
+    console.error('❌ Webhook Error:', err.response?.data || err.message);
+    res.sendStatus(500);
+  }
+});
 
-//   console.log(`⏳ انتهاء الدورة، سيتم الفحص مرة أخرى بعد دقيقة...`);
-// }, 60000);
+// ===== Gemini Handler =====
+async function getReplyFromGemini(messageText) {
+  try {
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+    const intentPrompt = `
+أنت مصنف نوايا ذكي. مهمتك تحديد نوع الرسالة التالية بدقة عالية.
+التصنيفات الممكنة:
+- سؤال
+- شكر
+- سخرية
+- طلب
+- عام
+
+الرسالة: "${messageText}"
+`;
+
+    const intentResult = await model.generateContent(intentPrompt);
+    const intent = intentResult.response.text().trim().toLowerCase();
+
+    console.log("🎯 التصنيف:", intent);
+
+    // بناء رد بسيط حسب النية
+    switch (intent) {
+      case 'سؤال':
+        return "سؤالك رائع! خليني أجاوبك...";
+      case 'شكر':
+        return "العفو 🙏 يسعدني مساعدتك.";
+      case 'سخرية':
+        return "تمام، خلينا نخليها بروح رياضية 😅";
+      case 'طلب':
+        return "تمام، خليني أنفذ طلبك 👍";
+      default:
+        return "مفهوم ✅ شكراً لتواصلك معنا.";
+    }
+  } catch (e) {
+    console.error("❌ Gemini Error:", e.message);
+    return "عذراً، حدث خطأ أثناء تحليل الرسالة.";
+  }
+}
+
+// ===== إرسال رسالة عبر Graph API =====
+async function sendInstagramMessage(userId, text) {
+  const url = `https://graph.facebook.com/v17.0/${IG_USER_ID}/messages`;
+  const payload = {
+    recipient: { id: userId },
+    message: { text }
+  };
+
+  const resp = await axios.post(url, payload, {
+    params: { access_token: PAGE_ACCESS_TOKEN }
+  });
+
+  console.log("📤 تم إرسال الرد:", resp.data);
+  return resp.data;
+}
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// const express = require('express');
+// const axios = require('axios');
+// const bodyParser = require('body-parser');
+// require('dotenv').config();
+// const { GoogleGenerativeAI } = require('@google/generative-ai');
+
+// const app = express();
+// const PORT = 8000;
+// app.use(bodyParser.json());
+// const PAGE_ID = process.env.PAGE_ID;
+// const PAGE_NAME = process.env.PAGE_NAME;
+// const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
+// const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// const repliedComments = new Set();
+
+// // setInterval(async () => {
+// //   console.log(`📡 بدء فحص منشورات الصفحة...`);
+
+// //   try {
+// //     const res = await axios.get(`https://graph.facebook.com/v19.0/${PAGE_ID}/feed`, {
+// //       params: {
+// //         access_token: PAGE_ACCESS_TOKEN,
+// //         fields: 'id,message,comments{message,id}'
+
+// //       }
+// //     });
+
+// //     const posts = res.data.data;
+
+// //     for (const post of posts) {
+// //       const postId = post.id;
+// //       const postText = post.message || '';
+// //       console.log(`📝 منشور (${postId}): ${postText}`);
+
+// //       if (post.comments && post.comments.data) {
+// //         for (const comment of post.comments.data) {
+// //           const commentId = comment.id;
+// //           const commentText = comment.message || '';
+// //           console.log(`💬 تعليق (${commentId}): ${commentText}`);
+
+// //           if (!repliedComments.has(commentId)) {
+// //             console.log(`🤖 جاري الرد على التعليق...`);
+// //             await replyToComment(commentId, commentText, postText);
+// //             repliedComments.add(commentId);
+// //             console.log(`✅ تم الرد على (${commentId})`);
+// //           } else {
+// //             console.log(`⏭️ تم تجاهل التعليق (${commentId}) لأنه تم الرد عليه مسبقًا.`);
+// //           }
+// //         }
+// //       } else {
+// //         console.log(`📭 لا توجد تعليقات على المنشور (${postId}) حتى الآن.`);
+// //       }
+// //     }
+// //   } catch (err) {
+// //     console.error('❌ خطأ أثناء جلب المنشورات:', JSON.stringify(err.response?.data, null, 2));
+// //   }
+
+// //   console.log(`⏳ انتهاء الدورة، سيتم الفحص مرة أخرى بعد دقيقة...`);
+// // }, 60000);
   
-// async function replyToComment(commentId, commentText, postText) {
-//   try {
-//     console.log(`🧠 تحليل التعليق: ${commentText}`);
+// // async function replyToComment(commentId, commentText, postText) {
+// //   try {
+// //     console.log(`🧠 تحليل التعليق: ${commentText}`);
 
-//     const intentPrompt = `
-// أنت مصنف نوايا ذكي. مهمتك تحديد نوع التعليق التالي بدقة عالية.
-// التصنيفات الممكنة:
-// - سؤال
-// - شكر
-// - سخرية
-// - طلب
-// - عام
+// //     const intentPrompt = `
+// // أنت مصنف نوايا ذكي. مهمتك تحديد نوع التعليق التالي بدقة عالية.
+// // التصنيفات الممكنة:
+// // - سؤال
+// // - شكر
+// // - سخرية
+// // - طلب
+// // - عام
 
-// التعليق: "${commentText}"
-// `;
+// // التعليق: "${commentText}"
+// // `;
 
-//     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
-//     const intentResult = await model.generateContent(intentPrompt);
-//     const intent = intentResult.response.text().trim().toLowerCase();
-//     console.log(intent);
+// //     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+// //     const intentResult = await model.generateContent(intentPrompt);
+// //     const intent = intentResult.response.text().trim().toLowerCase();
+// //     console.log(intent);
 
-//     let replyPrompt = '';
+// //     let replyPrompt = '';
 
-//     switch (intent) {
-//       case 'سؤال':
-//         replyPrompt = `شخص كتب تعليقًا فيه سؤال: "${commentText}" وكان المنشور يقول: "${postText}". أجب عليه بطريقة ذكية وواضحة.`;
-//         break;
-//       case 'شكر':
-//         replyPrompt = `شخص كتب تعليقًا فيه شكر: "${commentText}". رد عليه بلطافة وامتنان.`;
-//         break;
-//       case 'سخرية':
-//         replyPrompt = `شخص كتب تعليقًا ساخرًا: "${commentText}". رد عليه بلطافة دون استفزاز.`;
-//         break;
-//       case 'طلب':
-//         replyPrompt = `شخص كتب تعليقًا فيه طلب: "${commentText}". حاول مساعدته أو توجيهه.`;
-//         break;
-//       default:
-//         replyPrompt = `شخص كتب تعليقًا: "${commentText}". وكان المنشور يقول: "${postText}". رد عليه برد ودي ومحايد.`;
-//     }
+// //     switch (intent) {
+// //       case 'سؤال':
+// //         replyPrompt = `شخص كتب تعليقًا فيه سؤال: "${commentText}" وكان المنشور يقول: "${postText}". أجب عليه بطريقة ذكية وواضحة.`;
+// //         break;
+// //       case 'شكر':
+// //         replyPrompt = `شخص كتب تعليقًا فيه شكر: "${commentText}". رد عليه بلطافة وامتنان.`;
+// //         break;
+// //       case 'سخرية':
+// //         replyPrompt = `شخص كتب تعليقًا ساخرًا: "${commentText}". رد عليه بلطافة دون استفزاز.`;
+// //         break;
+// //       case 'طلب':
+// //         replyPrompt = `شخص كتب تعليقًا فيه طلب: "${commentText}". حاول مساعدته أو توجيهه.`;
+// //         break;
+// //       default:
+// //         replyPrompt = `شخص كتب تعليقًا: "${commentText}". وكان المنشور يقول: "${postText}". رد عليه برد ودي ومحايد.`;
+// //     }
 
-//     const replyResult = await model.generateContent(replyPrompt);
-//     const reply = replyResult.response.text().trim();
-//     console.log(reply);
-//     await axios.post(`https://graph.facebook.com/v19.0/${commentId}/comments`, {
-//       message: reply,
-//       access_token: PAGE_ACCESS_TOKEN
-//     });
+// //     const replyResult = await model.generateContent(replyPrompt);
+// //     const reply = replyResult.response.text().trim();
+// //     console.log(reply);
+// //     await axios.post(`https://graph.facebook.com/v19.0/${commentId}/comments`, {
+// //       message: reply,
+// //       access_token: PAGE_ACCESS_TOKEN
+// //     });
 
-//     console.log(`✅ تم الرد على ${commentId} (${intent}): ${reply}`);
-//   } catch (err) {
-//     console.error(`❌ فشل الرد على ${commentId}:`, JSON.stringify(err.response?.data, null, 2) || err.message, err.stack);
+// //     console.log(`✅ تم الرد على ${commentId} (${intent}): ${reply}`);
+// //   } catch (err) {
+// //     console.error(`❌ فشل الرد على ${commentId}:`, JSON.stringify(err.response?.data, null, 2) || err.message, err.stack);
 
-//   }
-// }
-// ✅ تحقق من Webhook عند الاشتراك من Facebook Developer Console
+// //   }
+// // }
+// // ✅ تحقق من Webhook عند الاشتراك من Facebook Developer Console
+// // app.get('/webhook', (req, res) => {
+// //   const VERIFY_TOKEN = 'abduljabbar';
+
+// //   const mode = req.query['hub.mode'];
+// //   const token = req.query['hub.verify_token'];
+// //   const challenge = req.query['hub.challenge'];
+
+// //   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+// //     console.log('✅ تم التحقق من Webhook بنجاح');
+// //     res.status(200).send(challenge);
+// //   } else {
+// //     console.log('❌ فشل التحقق من Webhook');
+// //     res.sendStatus(403);
+// //   }
+// // });
+
+// // ✅ استقبال رسائل ماسنجر والرد عليها تلقائيًا
+// // app.post('/webhook', express.json(), async (req, res) => {
+// //   const body = req.body;
+// // console.log('📥 تم استقبال POST /webhook:', JSON.stringify(req.body, null, 2));
+
+// //   if (body.object === 'page') {
+// //     for (const entry of body.entry) {
+// //       for (const event of entry.messaging) {
+// //         const senderId = event.sender.id;
+// //         const messageText = event.message?.text;
+
+// //         if (messageText) {
+// //           console.log(`📩 رسالة من ${senderId}: ${messageText}`);
+
+// //           try {
+// //             // تحليل النية باستخدام Gemini
+// //             const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+// //             const intentPrompt = `
+// // أنت مصنف نوايا ذكي. مهمتك تحديد نوع الرسالة التالية بدقة عالية.
+// // التصنيفات الممكنة:
+// // - سؤال
+// // - شكر
+// // - سخرية
+// // - طلب
+// // - عام
+
+// // الرسالة: "${messageText}"
+// // `;
+// //             const intentResult = await model.generateContent(intentPrompt);
+// //             const intent = intentResult.response.text().trim().toLowerCase();
+// //             console.log(`🧠 نية الرسالة: ${intent}`);
+
+// //             let replyPrompt = '';
+
+// //             switch (intent) {
+// //               case 'سؤال':
+// //                 replyPrompt = `شخص أرسل رسالة فيها سؤال: "${messageText}". أجب عليه بطريقة ذكية وواضحة.`;
+// //                 break;
+// //               case 'شكر':
+// //                 replyPrompt = `شخص أرسل رسالة فيها شكر: "${messageText}". رد عليه بلطافة وامتنان.`;
+// //                 break;
+// //               case 'سخرية':
+// //                 replyPrompt = `شخص أرسل رسالة ساخرة: "${messageText}". رد عليه بلطافة دون استفزاز.`;
+// //                 break;
+// //               case 'طلب':
+// //                 replyPrompt = `شخص أرسل رسالة فيها طلب: "${messageText}". حاول مساعدته أو توجيهه.`;
+// //                 break;
+// //               default:
+// //                 replyPrompt = `شخص أرسل رسالة: "${messageText}". رد عليه برد ودي ومحايد.`;
+// //             }
+
+// //             const replyResult = await model.generateContent(replyPrompt);
+// //             const reply = replyResult.response.text().trim();
+// //             console.log(`✉️ الرد: ${reply}`);
+
+// //             // إرسال الرد عبر ماسنجر
+// //             await axios.post(`https://graph.facebook.com/v19.0/me/messages`, {
+// //               recipient: { id: senderId },
+// //               message: { text: reply },
+// //               messaging_type: 'RESPONSE',
+// //               access_token: PAGE_ACCESS_TOKEN
+// //             });
+
+// //             console.log(`✅ تم الرد على ${senderId}`);
+// //           } catch (err) {
+// //             console.error(`❌ فشل الرد على ${senderId}:`, JSON.stringify(err.response?.data, null, 2) || err.message);
+// //           }
+// //         }
+// //       }
+// //     }
+
+// //     res.sendStatus(200);
+// //   } else {
+// //     res.sendStatus(404);
+// //   }
+// // });
+
 // app.get('/webhook', (req, res) => {
-//   const VERIFY_TOKEN = 'abduljabbar';
+//   const verifyToken = 'abduljabbar'; // تأكد أنها نفس القيمة التي أدخلتها في Meta
 
 //   const mode = req.query['hub.mode'];
 //   const token = req.query['hub.verify_token'];
 //   const challenge = req.query['hub.challenge'];
 
-//   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-//     console.log('✅ تم التحقق من Webhook بنجاح');
-//     res.status(200).send(challenge);
+//   if (mode === 'subscribe' && token === verifyToken) {
+//     console.log('✅ Webhook verified');
+//     res.status(200).send(challenge); // يجب أن يُرجع challenge مباشرة
 //   } else {
 //     console.log('❌ فشل التحقق من Webhook');
 //     res.sendStatus(403);
 //   }
 // });
 
-// ✅ استقبال رسائل ماسنجر والرد عليها تلقائيًا
-// app.post('/webhook', express.json(), async (req, res) => {
+
+// // app.get('/webhook', (req, res) => {
+// //   const verifyToken = process.env.WHATSAPP_TOKEN; // اختر رمز تحقق خاص بك
+
+// //   const mode = req.query['hub.mode'];
+// //   const token = req.query['hub.verify_token'];
+// //   const challenge = req.query['hub.challenge'];
+
+// //   if (mode && token === verifyToken) {
+// //     console.log('✅ Webhook verified');
+// //     res.status(200).send(challenge);
+// //   } else {
+// //     res.sendStatus(403);
+// //   }
+// // });
+
+// // استقبال الأحداث من WhatsApp
+// app.post('/webhook', async (req, res) => {
 //   const body = req.body;
-// console.log('📥 تم استقبال POST /webhook:', JSON.stringify(req.body, null, 2));
 
-//   if (body.object === 'page') {
+//   if (body.object === 'whatsapp_business_account') {
 //     for (const entry of body.entry) {
-//       for (const event of entry.messaging) {
-//         const senderId = event.sender.id;
-//         const messageText = event.message?.text;
+//       for (const change of entry.changes) {
+//         const value = change.value;
 
-//         if (messageText) {
-//           console.log(`📩 رسالة من ${senderId}: ${messageText}`);
+//         // استقبال رسالة جديدة
+//         if (value.messages) {
+//           const message = value.messages[0];
+//           const from = message.from;
+//           const text = message.text?.body;
 
-//           try {
-//             // تحليل النية باستخدام Gemini
-//             const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
-//             const intentPrompt = `
+//           console.log(`📩 رسالة من ${from}: ${text}`);
+
+//           if (text) {
+//             try {
+//               // تحليل النية باستخدام Gemini
+//               const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+//               const intentPrompt = `
 // أنت مصنف نوايا ذكي. مهمتك تحديد نوع الرسالة التالية بدقة عالية.
 // التصنيفات الممكنة:
 // - سؤال
@@ -156,46 +427,69 @@ const repliedComments = new Set();
 // - طلب
 // - عام
 
-// الرسالة: "${messageText}"
+// الرسالة: "${text}"
 // `;
-//             const intentResult = await model.generateContent(intentPrompt);
-//             const intent = intentResult.response.text().trim().toLowerCase();
-//             console.log(`🧠 نية الرسالة: ${intent}`);
+//               const intentResult = await model.generateContent(intentPrompt);
+//               const intent = intentResult.response.text().trim().toLowerCase();
+//               console.log(`🧠 نية الرسالة: ${intent}`);
 
-//             let replyPrompt = '';
+//               let replyPrompt = '';
 
-//             switch (intent) {
-//               case 'سؤال':
-//                 replyPrompt = `شخص أرسل رسالة فيها سؤال: "${messageText}". أجب عليه بطريقة ذكية وواضحة.`;
-//                 break;
-//               case 'شكر':
-//                 replyPrompt = `شخص أرسل رسالة فيها شكر: "${messageText}". رد عليه بلطافة وامتنان.`;
-//                 break;
-//               case 'سخرية':
-//                 replyPrompt = `شخص أرسل رسالة ساخرة: "${messageText}". رد عليه بلطافة دون استفزاز.`;
-//                 break;
-//               case 'طلب':
-//                 replyPrompt = `شخص أرسل رسالة فيها طلب: "${messageText}". حاول مساعدته أو توجيهه.`;
-//                 break;
-//               default:
-//                 replyPrompt = `شخص أرسل رسالة: "${messageText}". رد عليه برد ودي ومحايد.`;
+//               switch (intent) {
+//                 case 'سؤال':
+//                   replyPrompt = `شخص أرسل سؤال: "${text}". أجب عليه بطريقة ذكية وواضحة.`;
+//                   break;
+//                 case 'شكر':
+//                   replyPrompt = `شخص أرسل شكر: "${text}". رد عليه بلطافة وامتنان.`;
+//                   break;
+//                 case 'سخرية':
+//                   replyPrompt = `شخص كتب تعليقًا ساخرًا: "${text}". رد عليه بلطافة دون استفزاز.`;
+//                   break;
+//                 case 'طلب':
+//                   replyPrompt = `شخص طلب شيئًا: "${text}". حاول مساعدته أو توجيهه.`;
+//                   break;
+//                 default:
+//                   replyPrompt = `شخص كتب: "${text}". رد عليه برد ودي ومحايد.`;
+//               }
+
+//               const replyResult = await model.generateContent(replyPrompt);
+//               const reply = replyResult.response.text().trim();
+//               console.log(`✉️ الرد: ${reply}`);
+// const cleanReply = reply
+//   .replace(/\n/g, ' ')        // إزالة السطور الجديدة
+//   .replace(/\t/g, ' ')        // إزالة علامات التبويب
+//   .replace(/ {5,}/g, '    '); // تقليل المسافات المتتالية إلى 4 كحد أقصى
+
+//               // إرسال الرد عبر واتساب
+//            await axios.post(`https://graph.facebook.com/v19.0/${process.env.WHATSAPP_PHONE_ID}/messages`, {
+//   messaging_product: "whatsapp",
+//   to: from,
+//   type: "text",
+//   text: {
+//     body: cleanReply // رد Gemini بعد التنظيف
+//   }
+// }, {
+//   headers: {
+//     Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+//     "Content-Type": "application/json"
+//   }
+// });
+
+
+//               console.log(`✅ تم الرد على ${from}`);
+//             } catch (err) {
+//               console.error(`❌ فشل الرد على ${from}:`, JSON.stringify(err.response?.data, null, 2) || err.message);
 //             }
+//           }
+//         }
 
-//             const replyResult = await model.generateContent(replyPrompt);
-//             const reply = replyResult.response.text().trim();
-//             console.log(`✉️ الرد: ${reply}`);
+//         // حالة الرسالة (تم الإرسال، التسليم، القراءة، إلخ)
+//         if (value.statuses) {
+//           const status = value.statuses[0];
+//           console.log(`📊 حالة الرسالة: ${status.status}`);
 
-//             // إرسال الرد عبر ماسنجر
-//             await axios.post(`https://graph.facebook.com/v19.0/me/messages`, {
-//               recipient: { id: senderId },
-//               message: { text: reply },
-//               messaging_type: 'RESPONSE',
-//               access_token: PAGE_ACCESS_TOKEN
-//             });
-
-//             console.log(`✅ تم الرد على ${senderId}`);
-//           } catch (err) {
-//             console.error(`❌ فشل الرد على ${senderId}:`, JSON.stringify(err.response?.data, null, 2) || err.message);
+//           if (status.errors) {
+//             console.log(`❌ تفاصيل الخطأ: ${JSON.stringify(status.errors, null, 2)}`);
 //           }
 //         }
 //       }
@@ -207,146 +501,10 @@ const repliedComments = new Set();
 //   }
 // });
 
-app.get('/webhook', (req, res) => {
-  const verifyToken = 'abduljabbar'; // تأكد أنها نفس القيمة التي أدخلتها في Meta
 
-  const mode = req.query['hub.mode'];
-  const token = req.query['hub.verify_token'];
-  const challenge = req.query['hub.challenge'];
-
-  if (mode === 'subscribe' && token === verifyToken) {
-    console.log('✅ Webhook verified');
-    res.status(200).send(challenge); // يجب أن يُرجع challenge مباشرة
-  } else {
-    console.log('❌ فشل التحقق من Webhook');
-    res.sendStatus(403);
-  }
-});
-
-
-// app.get('/webhook', (req, res) => {
-//   const verifyToken = process.env.WHATSAPP_TOKEN; // اختر رمز تحقق خاص بك
-
-//   const mode = req.query['hub.mode'];
-//   const token = req.query['hub.verify_token'];
-//   const challenge = req.query['hub.challenge'];
-
-//   if (mode && token === verifyToken) {
-//     console.log('✅ Webhook verified');
-//     res.status(200).send(challenge);
-//   } else {
-//     res.sendStatus(403);
-//   }
+// app.listen(PORT, () => {
+//   console.log(`🚀 Facebook Smart Bot يعمل على http://localhost:${PORT}`);
 // });
-
-// استقبال الأحداث من WhatsApp
-app.post('/webhook', async (req, res) => {
-  const body = req.body;
-
-  if (body.object === 'whatsapp_business_account') {
-    for (const entry of body.entry) {
-      for (const change of entry.changes) {
-        const value = change.value;
-
-        // استقبال رسالة جديدة
-        if (value.messages) {
-          const message = value.messages[0];
-          const from = message.from;
-          const text = message.text?.body;
-
-          console.log(`📩 رسالة من ${from}: ${text}`);
-
-          if (text) {
-            try {
-              // تحليل النية باستخدام Gemini
-              const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
-              const intentPrompt = `
-أنت مصنف نوايا ذكي. مهمتك تحديد نوع الرسالة التالية بدقة عالية.
-التصنيفات الممكنة:
-- سؤال
-- شكر
-- سخرية
-- طلب
-- عام
-
-الرسالة: "${text}"
-`;
-              const intentResult = await model.generateContent(intentPrompt);
-              const intent = intentResult.response.text().trim().toLowerCase();
-              console.log(`🧠 نية الرسالة: ${intent}`);
-
-              let replyPrompt = '';
-
-              switch (intent) {
-                case 'سؤال':
-                  replyPrompt = `شخص أرسل سؤال: "${text}". أجب عليه بطريقة ذكية وواضحة.`;
-                  break;
-                case 'شكر':
-                  replyPrompt = `شخص أرسل شكر: "${text}". رد عليه بلطافة وامتنان.`;
-                  break;
-                case 'سخرية':
-                  replyPrompt = `شخص كتب تعليقًا ساخرًا: "${text}". رد عليه بلطافة دون استفزاز.`;
-                  break;
-                case 'طلب':
-                  replyPrompt = `شخص طلب شيئًا: "${text}". حاول مساعدته أو توجيهه.`;
-                  break;
-                default:
-                  replyPrompt = `شخص كتب: "${text}". رد عليه برد ودي ومحايد.`;
-              }
-
-              const replyResult = await model.generateContent(replyPrompt);
-              const reply = replyResult.response.text().trim();
-              console.log(`✉️ الرد: ${reply}`);
-const cleanReply = reply
-  .replace(/\n/g, ' ')        // إزالة السطور الجديدة
-  .replace(/\t/g, ' ')        // إزالة علامات التبويب
-  .replace(/ {5,}/g, '    '); // تقليل المسافات المتتالية إلى 4 كحد أقصى
-
-              // إرسال الرد عبر واتساب
-           await axios.post(`https://graph.facebook.com/v19.0/${process.env.WHATSAPP_PHONE_ID}/messages`, {
-  messaging_product: "whatsapp",
-  to: from,
-  type: "text",
-  text: {
-    body: cleanReply // رد Gemini بعد التنظيف
-  }
-}, {
-  headers: {
-    Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-    "Content-Type": "application/json"
-  }
-});
-
-
-              console.log(`✅ تم الرد على ${from}`);
-            } catch (err) {
-              console.error(`❌ فشل الرد على ${from}:`, JSON.stringify(err.response?.data, null, 2) || err.message);
-            }
-          }
-        }
-
-        // حالة الرسالة (تم الإرسال، التسليم، القراءة، إلخ)
-        if (value.statuses) {
-          const status = value.statuses[0];
-          console.log(`📊 حالة الرسالة: ${status.status}`);
-
-          if (status.errors) {
-            console.log(`❌ تفاصيل الخطأ: ${JSON.stringify(status.errors, null, 2)}`);
-          }
-        }
-      }
-    }
-
-    res.sendStatus(200);
-  } else {
-    res.sendStatus(404);
-  }
-});
-
-
-app.listen(PORT, () => {
-  console.log(`🚀 Facebook Smart Bot يعمل على http://localhost:${PORT}`);
-});
 
 
 
