@@ -1,6 +1,3 @@
-
-
-
 require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
@@ -10,9 +7,8 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const app = express();
 app.use(bodyParser.json());
 
-// إعدادات من .env
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-const PAGE_ACCESS_TOKEN = process.env.INSTGRAM_TOKN; // توكن الصفحة
+const PAGE_ACCESS_TOKEN = process.env.INSTGRAM_TOKN;
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // ===== Webhook Verification =====
@@ -34,15 +30,26 @@ app.get('/webhook', (req, res) => {
 // ===== Webhook Receiver =====
 app.post('/webhook', async (req, res) => {
   try {
+    console.log(JSON.stringify(req.body, null, 2));
     const body = req.body;
-console.log(JSON.stringify(req.body, null, 2));
+
     if (body.object === 'instagram') {
       body.entry.forEach(async (entry) => {
-        entry.changes?.forEach(async (change) => {
-          const value = change.value;
-          const messageText = value?.message?.text;
-          const conversationId = value?.conversation?.id;
+        entry.messaging?.forEach(async (event) => {
+          const messageText = event.message?.text;
+          const conversationId = event.conversation?.id;
 
+          // معالجة حالة message_edit مع num_edit = 0
+          if (!messageText && event.message_edit?.mid && event.message_edit?.num_edit === 0) {
+            const mid = event.message_edit.mid;
+            const fetchedText = await fetchMessageText(mid);
+            if (fetchedText) {
+              const replyText = await getReplyFromGemini(fetchedText);
+              await sendInstagramMessage(event.sender?.id, replyText);
+            }
+          }
+
+          // معالجة الرسائل العادية
           if (conversationId && messageText) {
             console.log(`📩 رسالة: ${messageText}`);
             const replyText = await getReplyFromGemini(messageText);
@@ -59,7 +66,6 @@ console.log(JSON.stringify(req.body, null, 2));
     res.sendStatus(500);
   }
 });
-
 
 // ===== Gemini Handler =====
 async function getReplyFromGemini(messageText) {
@@ -100,6 +106,18 @@ async function getReplyFromGemini(messageText) {
   }
 }
 
+// ===== استرجاع محتوى رسالة عبر MID =====
+async function fetchMessageText(mid) {
+  try {
+    const url = `https://graph.facebook.com/v19.0/${mid}?fields=message&access_token=${PAGE_ACCESS_TOKEN}`;
+    const resp = await axios.get(url);
+    return resp.data?.message?.text || null;
+  } catch (err) {
+    console.error("❌ فشل في جلب محتوى الرسالة:", err.response?.data || err.message);
+    return null;
+  }
+}
+
 // ===== إرسال رسالة عبر conversation ID =====
 async function sendInstagramMessage(conversationId, text) {
   const url = `https://graph.facebook.com/v19.0/${conversationId}/messages`;
@@ -121,7 +139,6 @@ async function sendInstagramMessage(conversationId, text) {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-
 
 
 
