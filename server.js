@@ -12,8 +12,8 @@ const app = express();
 app.use(bodyParser.json());
 
 // إعدادات من .env
-const VERIFY_TOKEN = process.env.INSTGRAM_TOKN;
-const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN; // التوكن من Meta
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
+const PAGE_ACCESS_TOKEN = process.env.INSTGRAM_TOKN; // التوكن من Meta
 const IG_USER_ID = process.env.IG_USER_ID; // instagram_business_account id
 
 // تهيئة Gemini
