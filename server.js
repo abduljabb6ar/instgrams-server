@@ -37,17 +37,17 @@ app.post('/webhook', async (req, res) => {
     if (body.object === 'instagram') {
       body.entry.forEach(async (entry) => {
         entry.messaging?.forEach(async (event) => {
-          // تجاهل أحداث القراءة
-          if (event.read) {
-            console.log("👀 تم قراءة رسالة:", event.read.mid);
-            return;
-          }
+          // // تجاهل أحداث القراءة
+          // if (event.read) {
+          //   console.log("👀 تم قراءة رسالة:", event.read.mid);
+          //   return;
+          // }
 
           // تجاهل أحداث التعديل لأنها لا تحتوي على نص مباشر
-          if (event.message_edit) {
-            console.log("✏️ تعديل رسالة (message_edit) تم تجاهله:", event.message_edit.mid);
-            return;
-          }
+          // if (event.message_edit) {
+          //   console.log("✏️ تعديل رسالة (message_edit) تم تجاهله:", event.message_edit.mid);
+          //   return;
+          // }
 
           // الرد فقط على الرسائل النصية الجديدة
           const messageText = event.message?.text;
