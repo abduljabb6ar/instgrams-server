@@ -1,7 +1,6 @@
 
 
 
-
 require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
@@ -13,10 +12,7 @@ app.use(bodyParser.json());
 
 // إعدادات من .env
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-const PAGE_ACCESS_TOKEN = process.env.INSTGRAM_TOKN; // التوكن من Meta
-const IG_USER_ID = process.env.IG_USER_ID; // instagram_business_account id
-
-// تهيئة Gemini
+const PAGE_ACCESS_TOKEN = process.env.INSTGRAM_TOKN; // توكن الصفحة
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // ===== Webhook Verification =====
@@ -44,17 +40,13 @@ app.post('/webhook', async (req, res) => {
       body.entry.forEach(async (entry) => {
         if (entry.messaging) {
           entry.messaging.forEach(async (event) => {
-            if (event.message && event.sender && event.sender.id) {
-              const senderId = event.sender.id;
-              const messageText = event.message.text || '';
+            const conversationId = event.conversation?.id;
+            const messageText = event.message?.text;
 
-              console.log(`📩 رسالة من ${senderId}: ${messageText}`);
-
-              // استدعاء Gemini لتصنيف الرسالة / إنشاء رد
+            if (conversationId && messageText) {
+              console.log(`📩 رسالة: ${messageText}`);
               const replyText = await getReplyFromGemini(messageText);
-
-              // إرسال الرد للمستخدم عبر Graph API
-              await sendInstagramMessage(senderId, replyText);
+              await sendInstagramMessage(conversationId, replyText);
             }
           });
         }
@@ -90,7 +82,6 @@ async function getReplyFromGemini(messageText) {
 
     console.log("🎯 التصنيف:", intent);
 
-    // بناء رد بسيط حسب النية
     switch (intent) {
       case 'سؤال':
         return "سؤالك رائع! خليني أجاوبك...";
@@ -109,20 +100,23 @@ async function getReplyFromGemini(messageText) {
   }
 }
 
-// ===== إرسال رسالة عبر Graph API =====
-async function sendInstagramMessage(userId, text) {
-  const url = `https://graph.facebook.com/v17.0/${IG_USER_ID}/messages`;
+// ===== إرسال رسالة عبر conversation ID =====
+async function sendInstagramMessage(conversationId, text) {
+  const url = `https://graph.facebook.com/v19.0/${conversationId}/messages`;
   const payload = {
-    recipient: { id: userId },
-    message: { text }
+    messaging_product: "instagram",
+    text: { body: text }
   };
 
-  const resp = await axios.post(url, payload, {
-    params: { access_token: PAGE_ACCESS_TOKEN }
-  });
-
-  console.log("📤 تم إرسال الرد:", resp.data);
-  return resp.data;
+  try {
+    const resp = await axios.post(url, payload, {
+      params: { access_token: PAGE_ACCESS_TOKEN }
+    });
+    console.log("📤 تم إرسال الرد:", resp.data);
+    return resp.data;
+  } catch (err) {
+    console.error("❌ إرسال الرسالة فشل:", err.response?.data || err.message);
+  }
 }
 
 const PORT = process.env.PORT || 3000;
